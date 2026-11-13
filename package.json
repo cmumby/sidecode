@@ -114,7 +114,8 @@
     "test:progress": "tsx scripts/test-progress.ts",
     "test:coexistence": "tsx scripts/test-coexistence.ts",
     "test:lifecycle": "node scripts/test-lifecycle.mjs",
-    "test:edit-approval": "tsx scripts/test-edit-approval.ts"
+    "test:edit-approval": "tsx scripts/test-edit-approval.ts",
+    "test:folder": "tsx scripts/test-folder.ts"
   },
   "dependencies": {
     "@opencode-ai/sdk": "1.19.4",

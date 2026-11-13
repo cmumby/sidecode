@@ -57,6 +57,22 @@ The open folder is the OpenCode project. With several folders open you are asked
 which one; with none, you pick a folder. Untrusted (Restricted Mode) and virtual
 workspaces cannot connect.
 
+## A server on another machine
+
+OpenCode reads, edits and runs commands **on the machine where `opencode serve`
+runs**, in the folder Sidecode asks for. Sidecode sends the editor's folder path, so
+that path must exist on the server's machine. A Mac editor talking to a Linux server
+over Tailscale sends something like `/Users/you/Projects/app`, which the Linux machine
+doesn't have; Connect then reports "The OpenCode server cannot open this folder".
+
+Ways to set it up:
+- **Edit the server machine's files remotely:** use Remote-SSH (or another remote
+  extension host) to open the project on the server machine, and install Sidecode there.
+  The folder path then matches. Use the server's local URL (`http://127.0.0.1:4096`).
+- **Keep files on your machine, borrow the GPU:** run `opencode serve` on the machine
+  with the files, and point its model provider at the other machine (for example
+  LM Studio's server on the GPU machine, reached over Tailscale).
+
 ## Using it
 
 - **Sessions.** The title is the current session; click it to switch. **+** starts
@@ -106,6 +122,9 @@ workspaces cannot connect.
 **"Cannot reach the server."** Check the server is running on that port
 (`opencode serve --port 4096`) and the URL under **⋯ → Server URL**. The error
 offers **Change server URL**.
+
+**"The OpenCode server cannot open this folder on its machine."** The server runs on
+another machine that doesn't have this folder. See "A server on another machine".
 
 **"Server authentication failed."** The server has a password: use
 **⋯ → Set credentials** (username `opencode` unless you changed it).

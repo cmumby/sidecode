@@ -89,7 +89,17 @@ test('SDK uses documented routes and directory, and Basic auth only in host requ
   });
   const signal = new AbortController().signal;
   await client.health(signal); await client.sessions(signal);
-  assert.deepEqual(requests.map(request => new URL(request.url).pathname), ['/global/health', '/session']);
+  assert.deepEqual(requests.map(request => new URL(request.url).pathname), ['/global/health', '/session', '/file']);
   assert.equal(new URL(requests[1]!.url).searchParams.get('directory'), '/project with spaces');
+  assert.equal(new URL(requests[2]!.url).searchParams.get('directory'), '/project with spaces', 'folder check uses the same project');
   assert.match(requests[0]!.headers.get('authorization')!, /^Basic /);
+});
+
+test('a project folder the server cannot open fails Connect clearly instead of every prompt', async () => {
+  const transport = createTransport({ baseUrl: 'http://127.0.0.1:4096', directory: '/Users/someone/Projects/git' }, async input => {
+    const path = new URL(new Request(input).url).pathname;
+    if (path === '/file') return new Response(JSON.stringify({ name: 'UnknownError' }), { status: 500, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify(path === '/global/health' ? { healthy: true, version: '1.19.4' } : []), { headers: { 'content-type': 'application/json' } });
+  });
+  await assert.rejects(transport.sessions(new AbortController().signal), (error: unknown) => (error as { code?: string }).code === 'folderMissing');
 });

@@ -677,3 +677,14 @@ its last step and passed on two reruns: intermittent). VSIX rebuilt.
   say "file not known yet" (1.19.4 sends no arguments until complete). Tests: unit
   (relative titles), `test:webview` (name visible at 200 px with a deep path, wording,
   working line), real-server suites and native 9/9.
+
+- Remote server folder (user report: every prompt errors from a second machine over
+  Tailscale): the Mac client sent `/Users/…/Projects/git`; the Linux server's log shows
+  `ENOENT … realPath` for every prompt, while Connect succeeded (listing sessions does
+  not touch the folder). Discovery (`scripts/discover-missing-dir.ts`): `file.list`
+  answers 500 for a folder missing on the server, 200 when present. The sessions stage
+  now lists the folder once; a server error becomes `folderMissing` (not retried) with a
+  clear message. README: "A server on another machine" (Remote-SSH, or run OpenCode
+  where the files are and point its provider at the GPU machine). Tests: unit (request
+  sequence, 500 → folderMissing), `test:folder` (real server: missing fails without
+  retries, existing connects), `test:server`, `test:conversations`, native 9/9.

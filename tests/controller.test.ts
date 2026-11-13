@@ -85,7 +85,7 @@ test('untrusted workspaces cannot connect; trusted connection cancels on setting
     h.workspace.isTrusted = true;
     const connected = new Promise<void>(resolve => h.controller.connection.subscribe(state => { if (state.phase === 'connected') resolve(); }));
     await h.controller.action('connect'); await connected;
-    assert.equal(h.requests.length, 3);
+    assert.equal(h.requests.length, 4, 'health, sessions, folder check, events');
     h.change(); assert.equal(h.controller.connection.state.phase, 'disconnected');
     assert.doesNotMatch(h.logs.join('\n'), /private|project/);
   } finally { h.controller.dispose(); }

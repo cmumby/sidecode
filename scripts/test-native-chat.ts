@@ -102,12 +102,18 @@ try {
   assert.equal(await assistant.last().locator('p strong').innerText(), 'hello', 'Markdown rendered');
   console.log('PASS: native URL/credential dialogs, connect, new session, send, visible streaming, Markdown');
 
-  await assistant.last().locator('.code-block').getByRole('button', { name: 'Copy code' }).click();
-  await assistant.last().getByRole('button', { name: 'Copied' }).waitFor();
-  // The system clipboard can update a moment after the webview reports success.
+  // The system clipboard is shared with the desktop: if something else copies at the same
+  // moment (for example the person using this machine), copy again rather than fail.
+  const copyAndRead = async () => {
+    await assistant.last().locator('.code-block').getByRole('button', { name: /Copy code|Copied/ }).click();
+    await assistant.last().getByRole('button', { name: 'Copied' }).waitFor();
+    let text = '';
+    for (let count = 0; count < 30 && !/const answer = 42;/.test(text); count++) { text = await app.evaluate(({ clipboard }) => clipboard.readText()); if (!/const answer = 42;/.test(text)) await pause(100); }
+    return text;
+  };
   let copied = '';
-  for (let count = 0; count < 30 && !/const answer = 42;/.test(copied); count++) { copied = await app.evaluate(({ clipboard }) => clipboard.readText()); if (!/const answer = 42;/.test(copied)) await pause(100); }
-  assert.match(copied, /const answer = 42;/, `clipboard after Copy: ${JSON.stringify(copied.slice(0, 80))}`);
+  for (let attempt = 0; attempt < 3 && !/const answer = 42;/.test(copied); attempt++) copied = await copyAndRead();
+  assert.match(copied, /const answer = 42;/, 'clipboard after Copy (3 attempts)');
   console.log('PASS: code-block copy in native webview');
 
   await prompt.fill('Say hello slowly without tools.');

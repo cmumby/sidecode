@@ -50,6 +50,11 @@ export function createTransport(options: ConnectionOptions, fetcher: typeof fetc
       const { data } = await client.session.list({ directory: options.directory }, { signal });
       // Phase 2 does not expose session data. Phase 3 will validate every field it consumes.
       if (!Array.isArray(data) || data.some((session) => typeof session !== 'object' || !session || typeof session.id !== 'string')) throw new ConnectionError('incompatible');
+      // OpenCode works on the server machine's files. Listing sessions succeeds even for a
+      // folder that does not exist there (for example a Mac path sent to a Linux server),
+      // but every prompt would then fail; listing the folder answers 500 in 1.19.4.
+      try { await client.file.list({ directory: options.directory, path: '.' }, { signal }); }
+      catch (error) { throw error instanceof ConnectionError && error.code === 'serverError' ? new ConnectionError('folderMissing') : error; }
     },
     async *events(signal) {
       let failure: unknown;
