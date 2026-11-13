@@ -3,7 +3,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 
 /**
  * Workspace-relative label when `path` resolves (symlinks included) to a location strictly
- * inside the real project directory; otherwise `undefined`. OpenCode 1.19.4 reads any
+ * inside the real project directory; otherwise `undefined`. OpenCode reads any
  * `file://` path it is given, so this is the only boundary for attached files.
  */
 export async function projectLabel(project: string, path: string): Promise<string | undefined> {

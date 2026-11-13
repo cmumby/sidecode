@@ -1,17 +1,19 @@
 import { randomBytes } from 'node:crypto';
 import { emptyChat, identifier, limits, record, type ChatMessage, type ChatState, type ContextItem, type PermissionReply, type Selection } from '../shared/chat';
-import type { ChangeSource, ContextPart, ConversationApi, ProjectedMessage } from './conversations';
+import { partKey, type ChangeSource, type ContextPart, type ConversationApi, type ProjectedMessage } from './conversations';
 /** Host-side pending attachment: the display item plus the part that will be sent. */
 export interface PendingContext { item: ContextItem; part: ContextPart }
 import { validEvent } from './transport';
 
+/** Live events that never change history on their own (no refresh). */
+const liveOnly = new Set(['session.text.delta', 'session.reasoning.delta', 'session.tool.input.delta', 'session.tool.progress', 'session.compaction.delta', 'server.heartbeat', 'server.connected']);
 /**
- * Snapshots are authoritative and replace messages by ID. OpenCode 1.19.4 persists a
- * text part only when it finishes, so live text comes from `message.part.delta`.
- * A delta overlay is kept only for parts whose full text was seen in
- * `message.part.updated` while connected (SSE is ordered, so the overlay is exact);
- * deltas for unknown parts are ignored and the overlay is dropped on disconnect,
- * session change or once the snapshot shows the message finished.
+ * Snapshots are authoritative and replace messages by ID. OpenCode 2 records a text
+ * part only when it ends, so live text comes from `session.text.delta` (and reasoning
+ * from `session.reasoning.delta`). A delta overlay is kept only for parts whose start
+ * was seen while connected (SSE is ordered, so the overlay is exact); deltas for unknown
+ * parts are ignored and the overlay is dropped on disconnect, session change or once the
+ * snapshot shows the message finished.
  */
 export class Chat {
   state = emptyChat();
@@ -26,6 +28,10 @@ export class Chat {
   private listeners = new Set<() => void>();
   private base: ProjectedMessage[] = [];
   private live = new Map<string, { messageID: string; text: string; kind: 'text' | 'reasoning' }>();
+  /** Running commands' shells, by tool call ID: newest output, read while the step runs. */
+  private shells = new Map<string, { messageID: string; shellID: string; cursor: number; text: string; cut: boolean }>();
+  private shellTimer: ReturnType<typeof setInterval> | undefined;
+  private shellRead: AbortController | undefined;
   private paint: ReturnType<typeof setTimeout> | undefined;
   private optionsRead: AbortController | undefined;
   /** Per-session context for the next prompt. Cleared on disconnect and after a confirmed send. */
@@ -39,12 +45,36 @@ export class Chat {
       this.base = patch.messages;
       const finished = new Set(this.base.filter(m => m.status !== 'streaming').map(m => m.id));
       for (const [id, part] of this.live) if (finished.has(part.messageID)) this.live.delete(id);
+      const running = new Set(this.base.flatMap(m => m.tools).filter(t => t.status === 'running').map(t => t.id));
+      for (const [id, shell] of this.shells) if (finished.has(shell.messageID) || (!running.has(id) && this.base.some(m => m.tools.some(t => t.id === id)))) this.shells.delete(id);
+      if (!this.shells.size) this.stopShells();
       patch = { ...patch, messages: this.render() };
     }
     this.state = { ...this.state, ...patch };
     this.listeners.forEach(listener => listener());
   }
-  private dropLive(): void { this.live.clear(); clearTimeout(this.paint); this.paint = undefined; }
+  private dropLive(): void { this.live.clear(); this.shells.clear(); this.stopShells(); clearTimeout(this.paint); this.paint = undefined; }
+  private stopShells(): void { clearInterval(this.shellTimer); this.shellTimer = undefined; this.shellRead?.abort(); this.shellRead = undefined; }
+  /** Reads new output of the running commands every half second (one request at a time). */
+  private watchShells(): void {
+    if (this.shellTimer) return;
+    this.shellTimer = setInterval(() => {
+      if (this.shellRead || !this.online || !this.api) return;
+      const api = this.api; const abort = new AbortController(); this.shellRead = abort;
+      const timeout = setTimeout(() => abort.abort(), 5000);
+      void (async () => {
+        try {
+          for (const shell of [...this.shells.values()]) {
+            const next = await api.shellOutput(shell.shellID, shell.cursor, abort.signal);
+            if (abort.signal.aborted || this.api !== api) return;
+            if (next.text) { const all = shell.text + next.text; shell.cut ||= all.length > limits.toolDetail - 1; shell.text = all.slice(-(limits.toolDetail - 1)); this.schedulePaint(); }
+            shell.cursor = next.cursor;
+          }
+        } catch { /* keep the step as it is; the final output arrives with the step */ }
+        finally { clearTimeout(timeout); if (this.shellRead === abort) this.shellRead = undefined; }
+      })();
+    }, 500);
+  }
   private render(): ChatMessage[] {
     return this.base.map(source => {
       // Explicit allowlist: host-only fields (part IDs, change sources) never reach the bridge.
@@ -56,7 +86,11 @@ export class Chat {
         for (const [partId, live] of this.live) if (live.kind === kind && live.messageID === message.id && !known.some(part => part.id === partId)) texts.push(live.text);
         return texts.join('\n\n');
       };
-      return { ...message, text: overlay(parts, 'text').slice(0, 1000000), reasoning: overlay(reasoningParts, 'reasoning').slice(0, limits.reasoning) };
+      const steps = message.tools.map(tool => {
+        const shell = tool.status === 'running' ? this.shells.get(tool.id) : undefined;
+        return shell?.text ? { ...tool, detail: shell.cut ? '…' + shell.text : shell.text } : tool;
+      });
+      return { ...message, tools: steps, text: overlay(parts, 'text').slice(0, 1000000), reasoning: overlay(reasoningParts, 'reasoning').slice(0, limits.reasoning) };
     });
   }
   private schedulePaint(): void {
@@ -81,28 +115,30 @@ export class Chat {
   event(value: unknown): void {
     if (!validEvent(value)) return;
     const props = value.properties;
-    if (value.type === 'message.part.delta') {
-      // Live text only; never triggers a history refresh.
-      const part = identifier(props.partID) ? this.live.get(props.partID) : undefined;
-      if (part && props.sessionID === this.state.selectedId && props.messageID === part.messageID && props.field === 'text' && typeof props.delta === 'string' && part.text.length + props.delta.length <= 1000000) {
-        part.text += props.delta; this.schedulePaint();
+    const selected = props.sessionID === this.state.selectedId && this.state.selectedId !== null;
+    const text = /^session\.(text|reasoning)\.(started|delta|ended)$/.exec(value.type);
+    if (text && selected && identifier(props.assistantMessageID) && Number.isInteger(props.ordinal) && (props.ordinal as number) >= 0 && (props.ordinal as number) < 10000) {
+      const kind = text[1] as 'text' | 'reasoning';
+      const key = partKey(props.assistantMessageID, kind, props.ordinal as number);
+      if (text[2] === 'started') this.live.set(key, { messageID: props.assistantMessageID, text: '', kind });
+      else {
+        const part = this.live.get(key);
+        // `ended` carries the whole text; a delta is appended only to a part seen from its start.
+        const next = text[2] === 'ended' ? (typeof props.text === 'string' ? props.text : undefined) : part && typeof props.delta === 'string' ? part.text + props.delta : undefined;
+        if (part && next !== undefined && next.length <= 1000000) part.text = next;
       }
-      return;
+      this.schedulePaint();
     }
-    // Unknown agents/models (and other prompt failures) are reported only as `session.error`.
-    // Raw server text may contain paths or stack traces, so only a fixed message is shown.
-    if (value.type === 'session.error' && props.sessionID === this.state.selectedId && !(record(props.error) && props.error.name === 'MessageAbortedError')) this.update({ error: 'sessionError' });
-    if (value.type === 'message.part.updated' && props.sessionID === this.state.selectedId && record(props.part)) {
-      const part = props.part;
-      // Reasoning streams through the same part/delta events as reply text (1.19.4).
-      if ((part.type === 'text' || part.type === 'reasoning') && identifier(part.id) && identifier(part.messageID) && part.sessionID === this.state.selectedId && typeof part.text === 'string' && part.text.length <= 1000000 && !part.ignored && !part.synthetic) {
-        this.live.set(part.id, { messageID: part.messageID, text: part.text, kind: part.type }); this.schedulePaint();
-      }
+    // A running command: its output is read from its shell until the step ends.
+    if (value.type === 'session.tool.progress' && selected && identifier(props.id) && identifier(props.assistantMessageID) && record(props.metadata) && identifier(props.metadata.shellID) && !this.shells.has(props.id)) {
+      this.shells.set(props.id, { messageID: props.assistantMessageID, shellID: props.metadata.shellID, cursor: 0, text: '', cut: false });
+      this.watchShells();
     }
-    if (/^(session\.|message\.|permission\.|question\.)/.test(value.type)) {
-      const id = value.properties.sessionID;
-      if (id === this.state.selectedId || value.type.startsWith('session.')) this.invalidate();
-    }
+    if (liveOnly.has(value.type)) return;
+    // A run that failed (for example an unavailable model). Raw server text may contain
+    // paths or stack traces, so only a fixed message is shown.
+    if (value.type === 'session.execution.failed' && selected) this.update({ error: 'sessionError' });
+    if (value.type.startsWith('session.') || (value.type.startsWith('permission.') && selected)) this.invalidate();
   }
   invalidate(): void {
     if (!this.online || !this.api) return;
@@ -223,8 +259,14 @@ export class Chat {
     if (requestId === this.state.submitted || id !== this.state.selectedId || this.state.busy || this.state.waiting || this.state.loading || !text.trim() || text.length > 32000) return;
     // OpenCode accepts unknown names and then fails asynchronously; send only currently listed values.
     const { agent, model } = selection;
-    if ((agent !== null && !this.state.agents.some(a => a.name === agent))
-      || (model !== null && !this.state.models.some(m => m.providerID === model.providerID && m.modelID === model.modelID))) {
+    const listedAgent = (name: string) => this.state.agents.some(a => a.name === name);
+    const listedModel = (ref: { providerID: string; modelID: string }) => this.state.models.some(m => m.providerID === ref.providerID && m.modelID === ref.modelID);
+    // OpenCode 2 keeps the session's agent and model when none is chosen ("Default"), so a
+    // session left on one that is no longer offered needs an explicit choice.
+    const { used } = this.state;
+    if ((agent !== null && !listedAgent(agent)) || (model !== null && !listedModel(model))
+      || (agent === null && used.agent !== null && this.state.agents.length > 0 && !listedAgent(used.agent))
+      || (model === null && used.model !== null && this.state.models.length > 0 && !listedModel(used.model))) {
       if (this.state.operation === 'none') this.update({ error: 'optionUnavailable' });
       return;
     }
@@ -244,7 +286,7 @@ export class Chat {
   async reply(sessionId: string, requestId: string, reply: PermissionReply): Promise<void> {
     if (sessionId !== this.state.selectedId || !this.state.permissions.some(p => p.id === requestId)) return;
     await this.mutate('replying', async (api, signal) => {
-      await api.reply(requestId, reply, signal);
+      await api.reply(sessionId, requestId, reply, signal);
       if (this.api === api && !signal.aborted) this.update({ permissions: this.state.permissions.filter(p => p.id !== requestId), waiting: this.state.permissions.length > 1 });
     });
   }
@@ -253,7 +295,7 @@ export class Chat {
   /**
    * Explicit only. Adds the session's edit rule. Never relaxes a configuration that
    * requires approval (`ask`, `deny` or per-pattern rules): a session `allow` would
-   * override it in 1.19.4. No request when already in the requested state.
+   * override it (verified in OpenCode 2.3.0). No request when already in the requested state.
    */
   async setEditApproval(sessionId: string, ask: boolean): Promise<void> {
     const session = this.state.sessions.find(s => s.id === sessionId);
@@ -268,14 +310,16 @@ export class Chat {
     });
   }
   /**
-   * Explicit only. OpenCode summarizes with the model, which can take minutes for local
-   * models, so the request waits up to 10 minutes; never retried.
+   * Explicit only. OpenCode 2 queues the compaction and runs it like a reply: the session
+   * is busy (and Stop works) until the summary is written. Never retried.
    */
   async compact(id: string): Promise<void> {
     if (id !== this.state.selectedId || this.state.busy || this.state.waiting) return;
-    const model = this.state.used.model && this.state.models.some(m => m.providerID === this.state.used.model!.providerID && m.modelID === this.state.used.model!.modelID) ? this.state.used.model : null;
     this.stoppedCompaction = false;
-    await this.mutate('compacting', async (api, signal) => { await api.compact(id, model, signal); }, 600000);
+    await this.mutate('compacting', async (api, signal) => {
+      await api.compact(id, signal);
+      if (this.api === api && !signal.aborted) this.update({ busy: true });
+    });
   }
   private stoppedCompaction = false;
   async stop(id: string): Promise<void> {

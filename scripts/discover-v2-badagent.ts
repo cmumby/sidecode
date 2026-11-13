@@ -1,0 +1,26 @@
+/** Discovery only: what OpenCode 2.3.0 records when a prompt runs with an agent it does not have. */
+import { setTimeout as pause } from 'node:timers/promises';
+import { modelFixture } from './fixtures/model';
+import { isolatedServer } from './fixtures/server';
+const model = await modelFixture(20);
+const s = await isolatedServer(model.config);
+await s.start();
+const h = { ...s.headers, 'content-type': 'application/json' };
+const session = (await (await fetch(`${s.baseUrl}/api/session`, { method: 'POST', headers: h, body: JSON.stringify({ location: { directory: s.project } }) })).json() as { data: { id: string } }).data.id;
+const post = async (path: string, body: unknown) => { const r = await fetch(`${s.baseUrl}/api/session/${session}${path}`, { method: 'POST', headers: h, body: JSON.stringify(body) }); return `${r.status} ${(await r.text()).slice(0, 300)}`; };
+console.log('agent', await post('/agent', { agent: 'removed' }));
+console.log('prompt', await post('/prompt', { text: 'stale' }));
+await pause(2000);
+const list = await (await fetch(`${s.baseUrl}/api/session/${session}/message?order=asc`, { headers: s.headers })).json() as { data: unknown[] };
+for (const m of list.data) console.log(JSON.stringify(m).slice(0, 400));
+console.log('inbox', JSON.stringify(await (await fetch(`${s.baseUrl}/api/session/${session}/inbox`, { headers: s.headers })).json()).slice(0, 600));
+console.log('active', JSON.stringify(await (await fetch(`${s.baseUrl}/api/session/active`, { headers: s.headers })).json()));
+console.log('switch back', await post('/agent', { agent: 'build' }));
+await pause(2000);
+console.log('inbox after switch', JSON.stringify(await (await fetch(`${s.baseUrl}/api/session/${session}/inbox`, { headers: s.headers })).json()).slice(0, 600));
+console.log('prompt again', await post('/prompt', { text: 'again' }));
+await pause(2000);
+console.log('inbox after prompt', JSON.stringify(await (await fetch(`${s.baseUrl}/api/session/${session}/inbox`, { headers: s.headers })).json()).slice(0, 600));
+const again = await (await fetch(`${s.baseUrl}/api/session/${session}/message?order=asc`, { headers: s.headers })).json() as { data: unknown[] };
+for (const m of again.data) console.log(JSON.stringify(m).slice(0, 200));
+await s.stop(); await model.stop();

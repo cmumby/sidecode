@@ -9,12 +9,12 @@ import { isolatedServer } from './fixtures/server';
 
 /**
  * Native end-to-end chat: real editor webview → extension host → isolated OpenCode
- * 1.19.4 → deterministic local model. Disposable editor profile; the user's server,
+ * 2.3.0 → deterministic local model. Disposable editor profile; the user's server,
  * settings and provider credentials are never used. The system clipboard is restored.
  */
 const model = await modelFixture(400);
 const fixture = model.config.provider.fixture;
-const server = await isolatedServer({ ...model.config, permission: { bash: 'ask', edit: 'ask' },
+const server = await isolatedServer({ ...model.config, permissions: [{ action: 'shell', resource: '*', effect: 'ask' }, { action: 'edit', resource: '*', effect: 'ask' }],
   provider: { fixture: { ...fixture, models: { ...fixture.models, second: { name: 'Second fixture', limit: { context: 32000, output: 4096 } } } } } });
 const root = await mkdtemp(join(tmpdir(), 'sidecode-native-chat-'));
 await mkdir(join(root, 'extensions'));
@@ -144,7 +144,7 @@ try {
     await button('Send').click();
     const card = ui.getByRole('region', { name: 'Permission requested' });
     await card.waitFor({ timeout: 20000 });
-    assert.match(await card.innerText(), /bash[\s\S]*echo sidecode-tool-ok/);
+    assert.match(await card.innerText(), /shell[\s\S]*echo sidecode-tool-ok/);
     assert.equal(await ui.locator('.tool').first().getAttribute('data-status'), 'waiting', 'held step shows it needs you');
     await pause(1000);
     assert.equal(await card.count(), 1, 'request held until answered');
@@ -160,7 +160,7 @@ try {
     assert.match(await group.locator('.steps-summary').innerText(), outcome === 'done' ? /^1 step · done$/ : /^1 step · 1 failed$/);
     await group.locator('> summary').click();
     await tool.locator('summary').click();
-    assert.match(await tool.locator('.tool-detail').innerText(), choice === 'Deny' ? /rejected permission/ : /sidecode-tool-ok/);
+    assert.match(await tool.locator('.tool-detail').innerText(), choice === 'Deny' ? /declined/ : /sidecode-tool-ok/);
   }
   console.log('PASS: native permission card held until answered; Allow once runs the tool, Deny fails it; tool rows expand');
 

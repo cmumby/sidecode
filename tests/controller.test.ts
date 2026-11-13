@@ -32,16 +32,21 @@ async function harness(options: { hangSecrets?: boolean; unsetUrl?: boolean } = 
   } };
   const module = { exports: {} as { Controller: new (context: unknown) => Controller } };
   vm.runInNewContext(bundle.outputFiles[0]!.text, {
-    module, exports: module.exports, Headers, Request, Response, URL, Buffer, AbortController, TextDecoderStream,
-    setTimeout, clearTimeout,
+    module, exports: module.exports, Headers, Request, Response, URL, Buffer, AbortController, TextDecoderStream, TextDecoder, TextEncoder,
+    setTimeout, clearTimeout, setInterval, clearInterval,
     fetch: async (request: Request) => {
       requests.push(request);
       const path = new URL(request.url).pathname;
-      if (path.endsWith('/event')) return new Response(new ReadableStream({ start(controller) {
-        controller.enqueue(new TextEncoder().encode('data: {"type":"server.connected","properties":{}}\n\n'));
+      // OpenCode 2.3.0 routes (shapes from scripts/discover-v2.ts).
+      if (path === '/api/event') return new Response(new ReadableStream({ start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"type":"server.connected","data":{}}\n\n'));
         request.signal.addEventListener('abort', () => { try { controller.close(); } catch { /* already cancelled */ } }, { once: true });
       } }), { headers: { 'content-type': 'text/event-stream' } });
-      return Response.json(path.endsWith('/health') ? { healthy: true, version: '1.19.4' } : []);
+      if (path === '/api/info') return Response.json({ version: '2.3.0', pid: 1, urls: [], paths: { tmp: '/tmp' } });
+      if (path === '/api/location') return Response.json({ directory: '/private/project', project: { id: 'p', directory: '/private/project', canonical: '/private/project' } });
+      if (path === '/api/session') return Response.json({ data: [], cursor: {} });
+      if (path === '/api/config') return Response.json([]);
+      return Response.json({ location: { directory: '/private/project' }, data: [] });
     },
     require: (id: string) => { if (id === 'vscode') return vscode; if (id === 'node:crypto') return { createHash, randomBytes };
       // Read-only path resolution for the context boundary; no other filesystem access.
@@ -85,7 +90,8 @@ test('untrusted workspaces cannot connect; trusted connection cancels on setting
     h.workspace.isTrusted = true;
     const connected = new Promise<void>(resolve => h.controller.connection.subscribe(state => { if (state.phase === 'connected') resolve(); }));
     await h.controller.action('connect'); await connected;
-    assert.equal(h.requests.length, 4, 'health, sessions, folder check, events');
+    assert.deepEqual(h.requests.slice(0, 4).map(r => new URL(r.url).pathname), ['/api/info', '/api/location', '/api/session', '/api/event'], 'info, folder check, sessions, events');
+    assert.ok(h.requests.slice(4).every(r => r.method === 'GET'), 'then only reads (options and history)');
     h.change(); assert.equal(h.controller.connection.state.phase, 'disconnected');
     assert.doesNotMatch(h.logs.join('\n'), /private|project/);
   } finally { h.controller.dispose(); }

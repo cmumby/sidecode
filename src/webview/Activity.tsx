@@ -45,7 +45,6 @@ function lastLine(text: string): string { return text.split('\n').reverse().find
  * One assistant message's tool calls as a step group. Active groups are open; finished
  * groups fold to a summary line. Tool output is untrusted and rendered as plain text.
  */
-/** `since(id)`: when this view first saw the step unfinished (OpenCode 1.19.4 sends no start time for queued steps). */
 /** Elapsed times come from server timestamps (`started`, else the reply's `created`), so they survive session switches and view reloads. */
 export function StepGroup({ tools, online, waiting, created, now }: { tools: ToolCall[]; online: boolean; waiting: boolean; created?: number | undefined; now?: number }) {
   if (!tools.length) return null;
@@ -107,7 +106,7 @@ export function PermissionCard({ request, disabled, answer, review }: { request:
       <button type="button" className="primary" disabled={disabled} onClick={() => answer('once')}>Allow once</button>
     </div>
     {request.always.length > 0 && <details className="permission-more"><summary>More options</summary>
-      <p>Always allow <strong>{request.permission}</strong> for {request.always.map((pattern, index) => <code key={index}>{pattern}</code>).reduce<ReactNode[]>((all, item, index) => index ? [...all, ', ', item] : [item], [])} in every session on this OpenCode server until it restarts. This is not saved to your configuration.</p>
+      <p>Always allow <strong>{request.permission}</strong> for {request.always.map((pattern, index) => <code key={index}>{pattern}</code>).reduce<ReactNode[]>((all, item, index) => index ? [...all, ', ', item] : [item], [])} in every session of this project, from now on. OpenCode saves this rule on the server, so it still applies after a restart. It is not added to your configuration file.</p>
       <button type="button" disabled={disabled} onClick={() => answer('always')}>Always allow</button>
     </details>}
   </section>;

@@ -11,7 +11,7 @@ import { modelFixture } from './fixtures/model';
 import { isolatedServer } from './fixtures/server';
 
 /**
- * Explicit context against isolated OpenCode 1.19.4 with temporary project files: file,
+ * Explicit context against isolated OpenCode 2.3.0 with temporary project files: file,
  * folder and selection parts reach the model, history shows labels only, and context is
  * sent once. Parts are built the way the controller builds them (see src/extension).
  */
@@ -27,7 +27,8 @@ async function waitFor(predicate: () => boolean, label: string) {
   throw new Error(`Timed out: ${label}; error=${chat.state.error}; busy=${chat.state.busy}`);
 }
 const idle = () => !chat.state.busy && !chat.state.loading && chat.state.operation === 'none';
-const lastUserContent = () => JSON.stringify((model.requests.at(-1) as { messages: { role: string; content: unknown }[] }).messages.filter(m => m.role === 'user').at(-1)?.content);
+// The latest agent request (OpenCode 2 also sends tool-less title requests after a reply).
+const lastUserContent = () => JSON.stringify(([...model.requests].reverse().find(r => (r as { tools?: unknown[] }).tools?.length) as { messages: { role: string; content: unknown }[] }).messages.filter(m => m.role === 'user').at(-1)?.content);
 let n = 0;
 const entry = (kind: 'file' | 'folder' | 'selection', label: string, url: string): PendingContext => ({ item: { id: `ctx_${++n}`, kind, label, note: '' },
   part: { type: 'file', mime: kind === 'folder' ? 'application/x-directory' : 'text/plain', filename: label, url } });

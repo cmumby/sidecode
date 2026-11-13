@@ -8,7 +8,7 @@ import { modelFixture } from './fixtures/model';
 import { isolatedServer } from './fixtures/server';
 
 /**
- * What a long run looks like against isolated OpenCode 1.19.4: reasoning streams before
+ * What a long run looks like against isolated OpenCode 2.3.0: reasoning streams before
  * the reply, a running command shows its newest output, and a failing provider surfaces
  * OpenCode's retry status (attempt + provider message) until Stop.
  */
@@ -57,23 +57,21 @@ try {
   await waitFor(() => idle() && chat.state.messages.some(m => m.tools.some(t => t.status === 'completed')), 'command finished');
   console.log('PASS: a running command shows its output while it runs');
 
-  // Slow model writing a large edit: OpenCode reports the step as pending with empty input until the arguments are complete.
+  // Slow model writing a large file: 2.3.0 sends no argument deltas for this provider, only `input.started`/`ended`.
   await prompt('RUN_LONGWRITE please');
   await waitFor(() => chat.state.messages.some(m => m.tools.some(t => t.status === 'pending')), 'pending step visible while the model writes it');
   const pending = chat.state.messages.flatMap(m => m.tools).find(t => t.status === 'pending')!;
-  assert.equal(pending.title, '', 'no "{}" placeholder'); assert.equal(pending.tool, 'write');
+  assert.equal(pending.tool, 'write'); assert.doesNotMatch(pending.title, /[{}]/, 'no raw JSON placeholder');
   await waitFor(() => idle() && chat.state.messages.some(m => m.tools.some(t => t.tool === 'write' && t.status === 'completed' && t.change?.label === 'notes.md')), 'write completes with its file');
   console.log('PASS: a step the model is still writing shows as pending, then completes with its file');
 
-  // Empty-response loop (user report): OpenCode keeps creating empty assistant steps.
+  // Empty-response loop (user report on 1.x): the model says it will call a tool but sends none.
   await prompt('EMPTY_LOOP please');
-  const empty = () => chat.state.messages.filter(m => m.role === 'assistant' && m.status === 'complete' && !m.text && !m.reasoning && !m.tools.length && !m.otherParts).length;
-  await waitFor(() => empty() >= 5, 'repeated empty assistant steps', 400);
-  assert.ok(chat.state.busy, 'OpenCode is still running the loop');
-  await chat.stop(chat.state.selectedId!);
-  await waitFor(() => idle(), 'Stop ends the loop');
-  console.log(`PASS: an empty-response loop shows as consecutive empty steps (${empty()} seen) while busy; Stop ends it`);
-
+  await waitFor(() => idle() && last()?.role === 'assistant', 'empty-response run ended', 400);
+  // OpenCode 2 ends the run after one empty reply (1.19.4 kept asking again forever).
+  const replies = chat.state.messages.filter(m => m.role === 'assistant');
+  assert.equal(replies.length, 1); assert.equal(replies[0]!.status, 'complete'); assert.equal(replies[0]!.text, ''); assert.equal(replies[0]!.tools.length, 0);
+  console.log('PASS: an empty response ends the run with one empty reply (no loop in OpenCode 2)');
   await prompt('FAIL_500 please');
   await waitFor(() => chat.state.retry !== null, 'retry status shown', 400);
   assert.ok(chat.state.busy); assert.ok(chat.state.retry!.attempt >= 1);

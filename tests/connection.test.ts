@@ -80,26 +80,51 @@ test('SDK checks status and content type for JSON and SSE, without accepting the
     await assert.rejects(async () => { for await (const event of client.events(new AbortController().signal)) void event; }, (error: unknown) => error instanceof ConnectionError && error.code === code);
   }
 });
-test('SDK uses documented routes and directory, and Basic auth only in host requests', async () => {
+test('uses the OpenCode 2 routes and project folder, and Basic auth only in host requests', async () => {
   const requests: Request[] = [];
-  const client = createTransport({ baseUrl: 'http://127.0.0.1:4096', directory: '/project with spaces', credentials: { username: 'opencode', password: 'test' } }, async input => {
-    const request = new Request(input); requests.push(request);
+  const client = createTransport({ baseUrl: 'http://127.0.0.1:4096', directory: '/project with spaces', credentials: { username: 'opencode', password: 'test' } }, async (input, init) => {
+    const request = new Request(input, init); requests.push(request);
     const path = new URL(request.url).pathname;
-    return new Response(JSON.stringify(path === '/global/health' ? { healthy: true, version: '1.19.4' } : []), { headers: { 'content-type': 'application/json; charset=utf-8' } });
+    return Response.json(path === '/api/info' ? { version: '2.3.0' } : path === '/api/location' ? { directory: '/project with spaces', project: {} } : { data: [], cursor: {} });
   });
   const signal = new AbortController().signal;
   await client.health(signal); await client.sessions(signal);
-  assert.deepEqual(requests.map(request => new URL(request.url).pathname), ['/global/health', '/session', '/file']);
-  assert.equal(new URL(requests[1]!.url).searchParams.get('directory'), '/project with spaces');
-  assert.equal(new URL(requests[2]!.url).searchParams.get('directory'), '/project with spaces', 'folder check uses the same project');
+  assert.deepEqual(requests.map(request => new URL(request.url).pathname), ['/api/info', '/api/location', '/api/session']);
+  assert.equal(new URL(requests[1]!.url).searchParams.get('location[directory]'), '/project with spaces', 'folder check uses the project');
+  assert.equal(new URL(requests[2]!.url).searchParams.get('directory'), '/project with spaces');
   assert.match(requests[0]!.headers.get('authorization')!, /^Basic /);
+  assert.equal(requests.every(request => request.redirect === 'error'), true, 'redirects are never followed');
 });
-
 test('a project folder the server cannot open fails Connect clearly instead of every prompt', async () => {
-  const transport = createTransport({ baseUrl: 'http://127.0.0.1:4096', directory: '/Users/someone/Projects/git' }, async input => {
-    const path = new URL(new Request(input).url).pathname;
-    if (path === '/file') return new Response(JSON.stringify({ name: 'UnknownError' }), { status: 500, headers: { 'content-type': 'application/json' } });
-    return new Response(JSON.stringify(path === '/global/health' ? { healthy: true, version: '1.19.4' } : []), { headers: { 'content-type': 'application/json' } });
+  const transport = createTransport({ baseUrl: 'http://127.0.0.1:4096', directory: '/Users/someone/Projects/git' }, async (input, init) => {
+    const path = new URL(new Request(input, init).url).pathname;
+    if (path === '/api/location') return Response.json({ _tag: 'LocationNotFoundError', message: 'Location not found: /Users/someone/Projects/git' }, { status: 404 });
+    return Response.json(path === '/api/info' ? { version: '2.3.0' } : { data: [] });
   });
   await assert.rejects(transport.sessions(new AbortController().signal), (error: unknown) => (error as { code?: string }).code === 'folderMissing');
+});
+test('an OpenCode 1 server is recognized and other versions are refused', async () => {
+  const v1 = createTransport({ baseUrl: 'http://127.0.0.1:4096', directory: '/p' }, async (input, init) => {
+    const path = new URL(new Request(input, init).url).pathname;
+    // 1.x answers unknown routes with its web app.
+    return path === '/global/health' ? Response.json({ healthy: true, version: '1.19.4' }) : new Response('<html>', { headers: { 'content-type': 'text/html' } });
+  });
+  await assert.rejects(v1.health(new AbortController().signal), (error: unknown) => (error as { code?: string }).code === 'oldServer');
+  for (const version of ['3.0.0', 'banana']) {
+    const other = createTransport({ baseUrl: 'http://127.0.0.1:4096', directory: '/p' }, async () => Response.json({ version }));
+    await assert.rejects(other.health(new AbortController().signal), (error: unknown) => (error as { code?: string }).code === 'incompatible');
+  }
+});
+test('events: OpenCode 2 envelopes, heartbeats and other projects', async () => {
+  const body = [': heartbeat', '', 'data: {"type":"server.connected","data":{}}', '', 'data: {"type":"session.text.delta","location":{"directory":"/other"},"data":{"sessionID":"ses_x"}}', '',
+    'data: {"id":"evt_1","type":"session.step.ended","location":{"directory":"/p"},"data":{"sessionID":"ses_a"},"durable":{"seq":1}}', '', 'data: {"type":"session.execution.started","data":{"sessionID":"ses_a"}}', '', ''].join('\n');
+  const client = createTransport({ baseUrl: 'http://127.0.0.1:4096', directory: '/p' }, async () => new Response(body, { headers: { 'content-type': 'text/event-stream' } }));
+  const seen: unknown[] = [];
+  await assert.rejects(async () => { for await (const event of client.events(new AbortController().signal)) seen.push(event); }, (error: unknown) => (error as { code?: string }).code === 'streamClosed');
+  assert.deepEqual(seen, [
+    { type: 'server.heartbeat', properties: {} }, { type: 'server.connected', properties: {} },
+    { type: 'session.step.ended', properties: { sessionID: 'ses_a' } }, { type: 'session.execution.started', properties: { sessionID: 'ses_a' } },
+  ]);
+  const bad = createTransport({ baseUrl: 'http://127.0.0.1:4096', directory: '/p' }, async () => new Response('data: {"type":"x","data":[1]}\n\n', { headers: { 'content-type': 'text/event-stream' } }));
+  await assert.rejects(async () => { for await (const event of bad.events(new AbortController().signal)) void event; }, (error: unknown) => (error as { code?: string }).code === 'incompatible');
 });

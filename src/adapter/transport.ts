@@ -1,73 +1,71 @@
-import { createOpencodeClient } from '@opencode-ai/sdk/v2/client';
-import { ConnectionError, assertSafeAuth, normalizeUrl } from './errors';
+import { record } from '../shared/chat';
+import { ApiError, createApi, locationQuery, readEvents, type ConnectionOptions } from './api';
+import { ConnectionError } from './errors';
 
-export interface Credentials { username: string; password: string }
-export interface ConnectionOptions { baseUrl: string; directory: string; credentials?: Credentials }
+export type { ConnectionOptions, Credentials } from './api';
 export interface Transport {
   health(signal: AbortSignal): Promise<void>;
   sessions(signal: AbortSignal): Promise<void>;
   events(signal: AbortSignal): AsyncIterable<unknown>;
 }
+/** Internal event shape: OpenCode 2's `{ type, data }` with `data` as `properties`. */
 export function validEvent(value: unknown): value is { type: string; properties: Record<string, unknown> } {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const event = value as Record<string, unknown>;
   return typeof event.type === 'string' && /^[a-zA-Z0-9_.-]{1,100}$/.test(event.type)
     && typeof event.properties === 'object' && event.properties !== null && !Array.isArray(event.properties);
 }
-/** Only client-side SDK code; never starts a server. */
-export function createApiClient(options: ConnectionOptions, fetcher: typeof fetch = fetch) {
-  const baseUrl = normalizeUrl(options.baseUrl);
-  const headers: Record<string, string> = {};
-  if (options.credentials) {
-    assertSafeAuth(baseUrl);
-    headers.Authorization = `Basic ${Buffer.from(`${options.credentials.username}:${options.credentials.password}`).toString('base64')}`;
-  }
-  const checkedFetch: typeof fetch = async (input, init) => {
-    const request = new Request(input, init);
-    let response: Response;
-    try { response = await fetcher(request, { redirect: 'error' }); }
-    catch { throw new ConnectionError('unavailable'); }
-    let code: 'authRequired' | 'serverError' | 'incompatible' | undefined;
-    if (response.status === 401 || response.status === 403) code = 'authRequired';
-    else if (response.status >= 500 || response.status === 429) code = 'serverError';
-    else if (!response.ok) code = 'incompatible';
-    const expected = new URL(request.url).pathname.endsWith('/event') ? 'text/event-stream' : 'application/json';
-    const emptyPromptAck = response.status === 204 && request.method === 'POST' && /\/session\/[^/]+\/prompt_async$/.test(new URL(request.url).pathname);
-    if (!code && !emptyPromptAck && response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== expected) code = 'incompatible';
-    if (code) { await response.body?.cancel(); throw new ConnectionError(code); }
-    return response;
-  };
-  return createOpencodeClient({ baseUrl, directory: options.directory, headers, fetch: checkedFetch, throwOnError: true });
-}
+/** Synthetic event for an SSE keepalive comment, so an idle but healthy stream is not timed out. */
+export const heartbeat = { type: 'server.heartbeat', properties: {} } as const;
+const semver = /^v?(\d+)\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/;
+
 export function createTransport(options: ConnectionOptions, fetcher: typeof fetch = fetch): Transport {
-  const client = createApiClient(options, fetcher);
+  const api = createApi(options, fetcher);
   return {
     async health(signal) {
-      const { data } = await client.global.health({ signal });
-      if (data?.healthy !== true || typeof data.version !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(data.version)) throw new ConnectionError('incompatible');
+      let info: unknown;
+      try { info = await api.get('/api/info', { signal }); }
+      catch (error) {
+        // OpenCode 1.x has no /api/info (it answers with its web app); it still has /global/health.
+        if (!(error instanceof ConnectionError && error.code === 'incompatible') && !(error instanceof ApiError)) throw error;
+        let old: unknown;
+        try { old = await api.get('/global/health', { signal }); } catch { throw new ConnectionError('incompatible'); }
+        if (record(old) && old.healthy === true && typeof old.version === 'string' && semver.exec(old.version)?.[1] === '1') throw new ConnectionError('oldServer');
+        throw new ConnectionError('incompatible');
+      }
+      const major = record(info) && typeof info.version === 'string' ? semver.exec(info.version)?.[1] : undefined;
+      if (major === undefined) throw new ConnectionError('incompatible');
+      if (major !== '2') throw new ConnectionError(Number(major) < 2 ? 'oldServer' : 'incompatible');
     },
     async sessions(signal) {
-      const { data } = await client.session.list({ directory: options.directory }, { signal });
-      // Phase 2 does not expose session data. Phase 3 will validate every field it consumes.
-      if (!Array.isArray(data) || data.some((session) => typeof session !== 'object' || !session || typeof session.id !== 'string')) throw new ConnectionError('incompatible');
-      // OpenCode works on the server machine's files. Listing sessions succeeds even for a
-      // folder that does not exist there (for example a Mac path sent to a Linux server),
-      // but every prompt would then fail; listing the folder answers 500 in 1.19.4.
-      try { await client.file.list({ directory: options.directory, path: '.' }, { signal }); }
-      catch (error) { throw error instanceof ConnectionError && error.code === 'serverError' ? new ConnectionError('folderMissing') : error; }
+      // OpenCode works on the server machine's files: a folder it does not have (for
+      // example a Mac path sent to a Linux server) is reported as LocationNotFoundError.
+      try {
+        const location = await api.get('/api/location', { query: locationQuery(options.directory), signal });
+        if (!record(location) || typeof location.directory !== 'string') throw new ConnectionError('incompatible');
+      } catch (error) {
+        if (error instanceof ApiError) throw new ConnectionError(error.tag === 'LocationNotFoundError' ? 'folderMissing' : 'incompatible');
+        throw error;
+      }
+      const list = await api.get('/api/session', { query: { directory: options.directory, limit: 1 }, signal });
+      if (!record(list) || !Array.isArray(list.data)) throw new ConnectionError('incompatible');
     },
     async *events(signal) {
-      let failure: unknown;
-      const result = await client.event.subscribe({ directory: options.directory }, {
-        signal, sseMaxRetryAttempts: 1, onSseError: (error) => { failure = error; },
-      });
-      try {
-        for await (const event of result.stream) {
-          if (!validEvent(event)) throw new ConnectionError('incompatible');
-          yield event;
-        }
-        if (failure) throw failure;
-      } finally { await result.stream.return(); }
+      const body = await api.stream('/api/event', signal);
+      for await (const data of readEvents(body, signal)) {
+        if (data === null) { yield heartbeat; continue; }
+        let event: unknown;
+        try { event = JSON.parse(data); } catch { throw new ConnectionError('incompatible'); }
+        if (!record(event) || typeof event.type !== 'string') throw new ConnectionError('incompatible');
+        // The stream carries every project on the server; drop events for other folders.
+        if (record(event.location) && typeof event.location.directory === 'string' && event.location.directory !== options.directory) continue;
+        const properties = event.data === undefined ? {} : event.data;
+        const normalized = { type: event.type, properties };
+        if (!validEvent(normalized)) throw new ConnectionError('incompatible');
+        yield normalized;
+      }
+      if (signal.aborted) throw new ConnectionError('timeout');
+      throw new ConnectionError('streamClosed');
     },
   };
 }

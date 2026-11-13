@@ -10,7 +10,7 @@ import { modelFixture } from './fixtures/model';
 import { isolatedServer } from './fixtures/server';
 
 /**
- * Per-session "ask before edits" against isolated OpenCode 1.19.4 (session permission rules,
+ * Per-session "ask before edits" against isolated OpenCode 2.3.0 (session permission rules,
  * nothing written to configuration): toggling on makes edits ask, off lets them apply,
  * the remembered default applies to new sessions, and a configuration that requires
  * approval is never relaxed.

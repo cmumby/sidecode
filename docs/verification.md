@@ -167,3 +167,16 @@ Release run note: in one full batch run, `test:native:chat` in VS Code passed on
 first step; the batch recorded PASS counts only, so the failure was not captured.
 Four further VS Code runs (alone and directly after the VSCodium run) passed 8/8.
 Treated as an intermittent, unexplained test failure; capture full logs next time.
+
+## OpenCode 2 port (2026-11-13)
+
+Server: isolated OpenCode 2.3.0 (pinned `@opencode/cli`), Linux x64, VSCodium 1.143.
+
+- [x] `npm run check` (65 unit tests, typecheck, lint, build); VSIX packaged.
+- [x] Real-server suites: `server` (incl. 1.19.4 recognized as version 1), `conversations`
+  (incl. 2.x CLI interop), `permissions` (incl. saved "always" across restart),
+  `selectors`, `context`, `changes`, `progress`, `edit-approval`, `folder`.
+- [x] `test:native:chat` (9 steps), `test:native`, `test:webview`, `test:editor`,
+  `test:lifecycle`, `test:placement`, `test:coexistence`.
+- [ ] VS Code run of the native suites after the port (VSCodium only so far).
+- [ ] macOS with a real OpenCode 2 server and LM Studio over Tailscale (user).

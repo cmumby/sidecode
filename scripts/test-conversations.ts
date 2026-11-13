@@ -9,7 +9,7 @@ import { Connection } from '../src/adapter/connection';
 import { createConversations } from '../src/adapter/conversations';
 import { createTransport } from '../src/adapter/transport';
 import { modelFixture } from './fixtures/model';
-import { isolatedServer } from './fixtures/server';
+import { isolatedServer, opencodeBinary } from './fixtures/server';
 const model = await modelFixture();
 const server = await isolatedServer(model.config);
 const options = { baseUrl: server.baseUrl, directory: server.project, credentials: server.credentials };
@@ -24,10 +24,11 @@ async function waitFor(predicate: () => boolean, label: string) {
   throw new Error(`Timed out: ${label}; connection=${connection.state.phase}; chat=${chat.state.error}; busy=${chat.state.busy}; messages=${chat.state.messages.length}`);
 }
 async function cli(args: string[]) {
-  const process = spawn('opencode', ['run', '--attach', server.baseUrl, '--dir', server.project, '--format', 'json', ...args], { env: server.env, stdio: ['ignore', 'pipe', 'pipe'] });
-  process.stdout.resume(); process.stderr.resume();
+  // OpenCode 2's CLI works in its current folder and attaches with `--server`.
+  const process = spawn(opencodeBinary(), ['run', '--server', server.baseUrl, '--format', 'json', ...args], { cwd: server.project, env: server.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = ''; process.stdout.on('data', d => { output += d; }); process.stderr.on('data', d => { output += d; });
   const timer = setTimeout(() => process.kill('SIGTERM'), 20000);
-  try { const [code] = await once(process, 'exit'); assert.equal(code, 0); } finally { clearTimeout(timer); }
+  try { const [code] = await once(process, 'exit'); assert.equal(code, 0, output.slice(-2000)); } finally { clearTimeout(timer); }
 }
 try {
   await server.start();

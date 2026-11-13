@@ -1,5 +1,5 @@
 /**
- * Minimal, strict unified-diff support for the single-file patches OpenCode 1.19.4 puts in
+ * Minimal, strict unified-diff support for the single-file patches OpenCode puts in
  * edit permissions and edit tool metadata (jsdiff format). Used only to build read-only
  * previews; nothing here writes files. Any mismatch returns `undefined` instead of guessing.
  */

@@ -92,7 +92,7 @@ try {
     await page.locator('.tool summary').first().click();
     assert.equal(await page.locator('.tool img, .tool [onerror]').count(), 0, 'tool output rendered as text');
     await page.locator('.permission').filter({ hasText: 'bash' }).getByText('More options', { exact: true }).click();
-    await page.getByText('until it restarts', { exact: false }).first().waitFor();
+    await page.getByText('still applies after a restart', { exact: false }).first().waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${theme.name} ${width}: permission/tool overflow`);
     await page.locator('.permission').filter({ hasText: 'bash' }).getByRole('button', { name: 'Allow once', exact: true }).click();
     assert.ok((await page.evaluate<string[]>('window.sentActions')).includes('permission'));

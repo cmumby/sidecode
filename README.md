@@ -11,7 +11,7 @@ other chat extensions such as Codex and Claude Code.
 
 | Component | Tested | Notes |
 |---|---|---|
-| OpenCode server | 1.19.4 | Other versions are untested; the API is validated and mismatches show "Unexpected API response". |
+| OpenCode server | 2.3.0 | OpenCode 2 only. Other 2.x versions are untested; the API is validated and mismatches show "Unexpected API response". A 1.x server is recognized and asked to upgrade. For OpenCode 1.x, use the `v1` branch (tested with 1.19.4). |
 | VSCodium | 1.143 (Linux x64) | Full automated suite. |
 | VS Code | 1.145 (Linux x64) | Full automated suite. |
 | Minimum editor | 1.106 | Needed for the secondary side bar tab. |
@@ -39,11 +39,12 @@ Uninstall with `codium --uninstall-extension sidecode-local.sidecode`.
 opencode serve --port 4096
 ```
 
-`--port` matters: without it `opencode serve` picks a random port. The server uses
-your normal OpenCode configuration, including your model provider (for example LM
-Studio). To require a password, start it with
-`OPENCODE_SERVER_PASSWORD=… opencode serve --port 4096` and enter the same
-password in Sidecode (username `opencode`).
+`--port` matters: without it `opencode serve` picks a random port. Sidecode needs
+OpenCode 2 (`opencode --version`; upgrade a 1.x install with `opencode upgrade --major`).
+The server uses your normal OpenCode configuration, including your model provider
+(for example LM Studio); OpenCode 2 reads 1.x-style `provider` settings too. To require
+a password, start it with `OPENCODE_SERVER_PASSWORD=… opencode serve --port 4096` and
+enter the same password in Sidecode (username `opencode`).
 
 ## Connect
 
@@ -81,7 +82,8 @@ Ways to set it up:
   send button becomes **Stop**, which cancels the work on the server. (Disconnect
   only stops updates in the editor.)
 - **Agent and model.** The pickers under the message box list what your server
-  offers. Each session starts from the agent and model it last used.
+  offers. Each session keeps the agent and model it last used ("Default"); if that one
+  is no longer offered, Sidecode asks you to pick another before sending.
 - **Context.** **+** in the message box attaches the **current file**, the
   **selection** (exactly as shown in the editor, unsaved edits included) or
   **workspace files and folders**. Only files inside the connected project can be
@@ -102,8 +104,9 @@ Ways to set it up:
 - **Approvals.** When OpenCode asks permission, a card shows the request. For file
   edits, **Review changes** opens the editor's diff view of the proposed change
   before you choose **Allow once** or **Deny**. **More options → Always allow**
-  allows the shown pattern for every session on that server until it restarts
-  (not saved to configuration). Nothing is approved or focused automatically.
+  allows the shown pattern in every session of the project from then on: OpenCode 2
+  saves the rule on the server (it survives restarts), not in your configuration
+  file. Nothing is approved or focused automatically.
 - **Changed files.** Files OpenCode edited stay listed under the reply with **Open**
   and **Changes** (a before/after diff in the editor).
 - **Context and usage.** A small meter next to the send button shows how full the
@@ -131,22 +134,27 @@ another machine that doesn't have this folder. See "A server on another machine"
 
 **"Unexpected API response."** The URL points at something that is not an OpenCode
 API (for example a web page), or a server version that behaves differently from
-1.19.4.
+2.3.0.
 
 **"The model provider returned an error. OpenCode is retrying…"** OpenCode keeps
 retrying a failing provider with growing waits, indefinitely. The notice shows the
 provider's own message. Common causes: the model isn't loaded in LM Studio, LM
 Studio isn't running, or the context is too long. Fix it and wait, or press Stop.
 
-**"The model keeps returning empty responses."** The model says it will call a tool
-but sends none, and OpenCode asks again forever. Press Stop. This is a model setup
-problem: use a model with tool-calling support, the right prompt template, and
-enough context length in your provider.
+**"This OpenCode server is version 1."** Sidecode needs OpenCode 2. On the server
+machine run `opencode upgrade --major`, restart `opencode serve`, and reconnect. OpenCode
+2 stores its data in a format 1.x can't read, so to go back to 1.x run
+`opencode uninstall --keep-config` before installing it. The `v1` branch of Sidecode
+still works with OpenCode 1.
+
+**A reply is empty.** The model said it would call a tool but sent none (OpenCode 2 then
+ends the run). This is a model setup problem: use a model with tool-calling support,
+the right prompt template, and enough context length in your provider.
 
 **A step shows "model is writing it" for a long time.** The model is generating the
-step's arguments (for example the content of a large file). OpenCode 1.19.4 shows
-nothing about the step until the model finishes, so neither can Sidecode. Large
-edits can take minutes with local models; Stop is safe.
+step's arguments (for example the content of a large file). OpenCode 2.3.0 sends the
+step's details only when the model finishes, so neither can Sidecode. Large edits can
+take minutes with local models; Stop is safe.
 
 **"This conversation is using 85% of the model's context."** Local models often fail,
 loop or forget earlier messages near their limit. Use **Compact conversation**, start
@@ -174,13 +182,15 @@ URLs, paths, credentials, sessions or message text.
 
 ## Known limitations
 
-- Tested with OpenCode 1.19.4, VSCodium 1.143 and VS Code 1.145 on Linux only.
+- Tested with OpenCode 2.3.0, VSCodium 1.143 and VS Code 1.145 on Linux only.
+- OpenCode 2.3.0 lists only its built-in agents (`build`, `plan`); agents defined in
+  configuration do not appear in its agent list, so Sidecode can't offer them.
 - Paths are sent to the server as the editor sees them, so the server must share the
   editor's filesystem (a local server, or one in the same remote or container).
-- Agent questions (OpenCode's `question` tool) are not shown; the view says input is
-  pending, and you can answer in the CLI or press Stop.
-- Only OpenCode's `edit` and `write` tools get change summaries and diffs; an
-  overwrite by `write` offers Open only (1.19.4 records no patch for it).
+- Agent questions (OpenCode's `question` tool and forms) are not shown; answer them in
+  the CLI or press Stop.
+- Only OpenCode's `edit` and `write` tools get change summaries and diffs; a file
+  written without approval offers Open only (2.3.0 records no patch for it).
 - Attached files are sent as text; images and other binary files are untested. The
   workspace picker excludes only `node_modules` and `.git`, lists at most 5,000
   files, and with multiple cursors only the main selection is attached.
@@ -213,9 +223,14 @@ npm run check      # typecheck, lint, unit tests, build
 npm run package    # sidecode-0.1.0.vsix
 ```
 
-The integration tests start their own isolated OpenCode 1.19.4 and a local fake
-model (no provider, credits or personal config involved), and disposable editor
-profiles. Set `SIDECODE_EDITOR_BINARY=/usr/share/code/code` (and for
+The integration tests start their own isolated OpenCode 2.3.0 (the pinned
+`@opencode/cli` dev dependency, with its own home and data folders; your installed
+OpenCode and its data are never used) and a local fake model (no provider, credits or
+personal config involved), and disposable editor profiles. OpenCode 2 looks for LM
+Studio on port 1234 by itself; the test server is pointed elsewhere so it never
+contacts a model server on your machine. `test:server` also checks that an installed
+OpenCode 1.x (`~/.opencode/bin/opencode`) is recognized, when present.
+Set `SIDECODE_EDITOR_BINARY=/usr/share/code/code` (and for
 `test:editor` also `SIDECODE_EDITOR_CLI=/usr/bin/code`) to run against VS Code.
 
 | Script | What it checks |
@@ -228,7 +243,7 @@ profiles. Set `SIDECODE_EDITOR_BINARY=/usr/share/code/code` (and for
 | `test:coexistence` | Copies of the installed Codex and Claude Code extensions are unaffected. |
 | `test:conversations`, `test:permissions`, `test:selectors`, `test:context`, `test:changes`, `test:progress`, `test:server` | Real-server behaviour for each feature. |
 
-See `docs/discovery.md` for the verified OpenCode 1.19.4 behaviour this relies on
+See `docs/discovery.md` for the verified OpenCode 2.3.0 behaviour this relies on
 and `docs/verification.md` for the verification record.
 
 The publisher `sidecode-local` is for local installation; the project is private

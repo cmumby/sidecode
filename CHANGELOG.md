@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Requires OpenCode 2** (tested with 2.3.0). The server layer was rewritten for the
+  OpenCode 2 API; a 1.x server is recognized and asked to upgrade. OpenCode 1 users can
+  stay on the `v1` branch.
+- "Always allow" now says what OpenCode 2 does: the rule is saved for the project and
+  survives server restarts.
+- A run that fails before replying (for example an unavailable model or agent) shows
+  as a failed reply; a session left on an agent or model that is no longer offered
+  asks for a choice instead of failing again.
+- Live command output is read from the command's shell while it runs.
 - Context meter beside the send button, with a near-limit warning and **Compact
   conversation** (OpenCode's own summarize); compaction shows as a divider with the
   summary folded; Stop works while compacting.

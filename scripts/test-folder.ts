@@ -4,7 +4,7 @@ import { Connection } from '../src/adapter/connection';
 import { createTransport } from '../src/adapter/transport';
 import { isolatedServer } from './fixtures/server';
 
-/** Connect checks that the project folder exists on the server's machine (isolated OpenCode 1.19.4). */
+/** Connect checks that the project folder exists on the server's machine (isolated OpenCode 2.3.0). */
 const server = await isolatedServer({});
 try {
   await server.start();

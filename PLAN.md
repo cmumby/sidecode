@@ -688,3 +688,26 @@ its last step and passed on two reruns: intermittent). VSIX rebuilt.
   where the files are and point its provider at the GPU machine). Tests: unit (request
   sequence, 500 → folderMissing), `test:folder` (real server: missing fails without
   retries, existing connects), `test:server`, `test:conversations`, native 9/9.
+
+## Port to OpenCode 2 (user request, 2026-11-13)
+
+Trigger: OpenCode 2.3.0 installed on the Mac; Sidecode (1.19.4 API) could not connect.
+2.x is a new API (see docs/discovery.md), so the server layer was rewritten; the UI,
+protocol and host are unchanged apart from wording. The last 1.x build is the `v1`
+branch (pushed, commit 4bb4a0c).
+
+- [x] Discovery against isolated 2.3.0 (`scripts/discover-v2*.ts`); the 2.3.0 client
+  wrapper mishandles 204 answers, so `src/adapter/api.ts` is a small own client.
+- [x] Transport: `/api/info` (major 2; 1.x → `oldServer` message), `/api/location`
+  (`folderMissing`), session list, `/api/event` with heartbeats and project filtering.
+- [x] Conversations: 2.x history items, run outcomes, failed runs without a reply,
+  inbox-aware busy state, agent/model switching on the session, retry from the reply,
+  compaction items, prompt files, `metadata.files` changes, saved "always" wording.
+- [x] Chat: `session.text/reasoning.*` overlay, `session.execution.failed`, live shell
+  output, explicit choice when the session's agent/model is no longer listed.
+- [x] Tests: fixture runs pinned `@opencode/cli` 2.3.0 with its own home and data and
+  never reaches the developer's LM Studio; fake model uses 2.x tool names and fills the
+  compaction template. All unit (65), real-server (10 suites), native, webview,
+  editor, lifecycle, placement and coexistence suites pass on Linux (VSCodium).
+- Not supported/claimed: custom agents (2.3.0 does not list them), early file names
+  for steps being written (2.3.0 sends no argument deltas), macOS (user to verify).

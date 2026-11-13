@@ -8,12 +8,12 @@ import { modelFixture } from './fixtures/model';
 import { isolatedServer } from './fixtures/server';
 
 /**
- * Tool display and explicit permission replies against isolated OpenCode 1.19.4 with
- * `permission.bash = "ask"`. The model fixture requests one harmless `echo` in a
+ * Tool display and explicit permission replies against isolated OpenCode 2.3.0 with an
+ * `shell` → `ask` rule. The model fixture requests one harmless `echo` in a
  * temporary project. Nothing here touches the user's server or configuration.
  */
 const model = await modelFixture(50);
-const server = await isolatedServer({ ...model.config, permission: { bash: 'ask' } });
+const server = await isolatedServer({ ...model.config, permissions: [{ action: 'shell', resource: '*', effect: 'ask' }] });
 const options = { baseUrl: server.baseUrl, directory: server.project, credentials: server.credentials };
 const chat = new Chat(50);
 const connection = new Connection();
@@ -37,9 +37,9 @@ try {
   await prompt('once');
   await waitFor(() => chat.state.permissions.length === 1, 'permission shown');
   const request = chat.state.permissions[0]!;
-  assert.equal(request.permission, 'bash'); assert.deepEqual(request.patterns, ['echo sidecode-tool-ok']); assert.deepEqual(request.always, ['echo *']);
+  assert.equal(request.permission, 'shell'); assert.deepEqual(request.patterns, ['echo sidecode-tool-ok']); assert.deepEqual(request.always, ['echo *']);
   assert.equal(chat.state.waiting, true);
-  await waitFor(() => tools().some(t => t.tool === 'bash' && t.status === 'running'), 'tool shown as running while waiting');
+  await waitFor(() => tools().some(t => t.tool === 'shell' && t.status === 'running'), 'tool shown as running while waiting');
   await pause(1500);
   assert.equal(chat.state.permissions.length, 1, 'never answered automatically');
   await chat.reply(chat.state.selectedId!, request.id, 'once');
@@ -48,14 +48,14 @@ try {
   assert.match(chat.state.messages.at(-1)!.text, /Tool finished/);
   assert.equal(chat.state.permissions.length, 0); assert.equal(chat.state.error, null);
   const api = createConversations(options);
-  await assert.rejects(api.reply(request.id, 'once', AbortSignal.timeout(5000)), 'a second answer is refused by the server');
+  await assert.rejects(api.reply(chat.state.selectedId!, request.id, 'once', AbortSignal.timeout(5000)), 'a second answer is refused by the server');
   console.log('PASS: tool call shown, permission shown and held, Allow once runs it, duplicate answer refused');
 
   await prompt('reject');
   await waitFor(() => chat.state.permissions.length === 1, 'second permission');
   await chat.reply(chat.state.selectedId!, chat.state.permissions[0]!.id, 'reject');
   await waitFor(() => idle() && tools().some(t => t.status === 'error'), 'tool rejected');
-  assert.match(tools()[0]!.detail, /rejected permission/);
+  assert.match(tools()[0]!.detail, /declined/);
   console.log('PASS: Deny records a failed tool call with the rejection');
 
   await prompt('stop');
@@ -72,5 +72,16 @@ try {
   await prompt('after-always');
   await waitFor(() => idle() && tools().some(t => t.status === 'completed'), 'later session auto-allowed');
   assert.equal(chat.state.permissions.length, 0);
-  console.log('PASS: Always allow covers later sessions on the same server (scope matches UI text)');
+  console.log('PASS: Always allow covers later sessions in the project');
+
+  // OpenCode 2 saves the rule for the project: it is listed and still applies after a restart (the UI says so).
+  const location = await (await fetch(`${server.baseUrl}/api/location?location%5Bdirectory%5D=${encodeURIComponent(server.project)}`, { headers: server.headers })).json() as { project: { id: string } };
+  const saved = await (await fetch(`${server.baseUrl}/api/permission/saved?projectID=${location.project.id}`, { headers: server.headers })).json() as { data: { action: string; resource: string }[] };
+  assert.deepEqual(saved.data.map(rule => [rule.action, rule.resource]), [['shell', 'echo *']], 'saved for this project');
+  await server.stop(); await server.start();
+  await waitFor(() => connection.state.phase === 'connected' && idle(), 'reconnected after restart');
+  await prompt('after-restart');
+  await waitFor(() => idle() && tools().some(t => t.status === 'completed'), 'still allowed after restart');
+  assert.equal(chat.state.permissions.length, 0);
+  console.log('PASS: Always allow is saved for the project and survives a server restart (matches UI text)');
 } finally { connection.dispose(); chat.dispose(); await server.stop(); await model.stop(); }
