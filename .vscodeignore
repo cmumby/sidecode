@@ -1,0 +1,8 @@
+**/*
+!package.json
+!README.md
+!CHANGELOG.md
+!media/opencode.svg
+!dist/extension.cjs
+!dist/webview.js
+!dist/webview.css

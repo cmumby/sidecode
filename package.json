@@ -1,0 +1,145 @@
+{
+  "name": "sidecode",
+  "displayName": "Sidecode",
+  "description": "A sidebar client for an existing OpenCode server.",
+  "version": "0.1.0",
+  "publisher": "sidecode-local",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.106.0",
+    "node": ">=22.12.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.cjs",
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "The view is available; server connections require a trusted workspace."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Project connections require a filesystem directory."
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "sidecode",
+          "title": "OpenCode",
+          "icon": "media/opencode.svg"
+        }
+      ]
+    },
+    "views": {
+      "sidecode": [
+        {
+          "id": "sidecode.chat",
+          "name": "OpenCode",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "OpenCode",
+      "properties": {
+        "sidecode.serverUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:4096",
+          "scope": "machine",
+          "description": "Existing OpenCode HTTP(S) server URL. Credentials are stored separately. Connections start only when you choose Connect."
+        },
+        "sidecode.notifications": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Show an editor notification when OpenCode finishes a reply or needs your approval while the OpenCode view is hidden or the window is not focused."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "sidecode.connect",
+        "title": "OpenCode: Connect"
+      },
+      {
+        "command": "sidecode.disconnect",
+        "title": "OpenCode: Disconnect"
+      },
+      {
+        "command": "sidecode.configure",
+        "title": "OpenCode: Set Server URL"
+      },
+      {
+        "command": "sidecode.credentials",
+        "title": "OpenCode: Set Server Credentials"
+      },
+      {
+        "command": "sidecode.clearCredentials",
+        "title": "OpenCode: Clear Server Credentials"
+      },
+      {
+        "command": "sidecode.diagnostics",
+        "title": "OpenCode: Show Connection Diagnostics"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "tsx --test tests/*.test.ts",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package --no-dependencies --allow-missing-repository --skip-license --out sidecode-0.1.0.vsix",
+    "probe": "tsx scripts/probe.ts",
+    "test:editor": "node scripts/test-editor.mjs",
+    "test:webview": "tsx scripts/test-webview.ts",
+    "test:server": "tsx scripts/test-server.ts",
+    "test:native": "node scripts/test-native.mjs",
+    "test:conversations": "tsx scripts/test-conversations.ts",
+    "test:native:chat": "tsx scripts/test-native-chat.ts",
+    "test:permissions": "tsx scripts/test-permissions.ts",
+    "test:selectors": "tsx scripts/test-selectors.ts",
+    "test:context": "tsx scripts/test-context.ts",
+    "test:changes": "tsx scripts/test-changes.ts",
+    "test:placement": "tsx scripts/test-placement-upgrade.ts",
+    "test:progress": "tsx scripts/test-progress.ts",
+    "test:coexistence": "tsx scripts/test-coexistence.ts",
+    "test:lifecycle": "node scripts/test-lifecycle.mjs",
+    "test:edit-approval": "tsx scripts/test-edit-approval.ts"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "1.19.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "rehype-highlight": "7.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/vscode": "1.90.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.1.0",
+    "esbuild": "0.28.2",
+    "eslint": "9.39.5",
+    "playwright-core": "1.65.0",
+    "tsx": "4.23.15",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.36.0"
+  },
+  "type": "module",
+  "overrides": {
+    "minimatch": "11.0.1"
+  }
+}

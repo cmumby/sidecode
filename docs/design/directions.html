@@ -1,0 +1,359 @@
+<title>Sidecode UI Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a review board. Page chrome stays quiet and cool; the three sidebar mockups are the content, rendered in VS Code Modern palettes that follow the viewer's theme. */
+:root {
+  --page: #eceef2; --surface: #f8f9fb; --ink: #1c2330; --muted: #566072; --line: #d3d8e0; --accent: #2a64c5;
+  --font-ui: "IBM Plex Sans", "Segoe UI", Ubuntu, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", monospace;
+  /* Mock: VS Code Light Modern */
+  --vs-bg: #f8f8f8; --vs-fg: #3b3b3b; --vs-muted: #6e6e6e; --vs-border: #e5e5e5; --vs-input: #ffffff; --vs-input-border: #cecece;
+  --vs-button: #005fb8; --vs-button-fg: #ffffff; --vs-button2: #e5e5e5; --vs-button2-fg: #3b3b3b; --vs-hover: #e8e8e8;
+  --vs-add: #587c0c; --vs-del: #ad0707; --vs-warn: #8a6100; --vs-warn-bg: #fff4d6; --vs-err: #c50f1f; --vs-err-bg: #fde7e9;
+  --vs-code: #f0f0f0; --vs-bubble: #e9eef6; --vs-badge: #e4e6ea; --vs-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 14px rgba(0,0,0,.06);
+  --vs-font: Ubuntu, "Segoe UI", -apple-system, system-ui, sans-serif;
+  --vs-mono: "DejaVu Sans Mono", "Cascadia Mono", Menlo, ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page: #0e1116; --surface: #151a21; --ink: #e4e8ef; --muted: #9aa4b4; --line: #29303b; --accent: #6ea5ff;
+  --vs-bg: #181818; --vs-fg: #cccccc; --vs-muted: #9d9d9d; --vs-border: #2b2b2b; --vs-input: #313131; --vs-input-border: #3c3c3c;
+  --vs-button: #0078d4; --vs-button-fg: #ffffff; --vs-button2: #313131; --vs-button2-fg: #cccccc; --vs-hover: #2a2d2e;
+  --vs-add: #81b88b; --vs-del: #f48771; --vs-warn: #e2c08d; --vs-warn-bg: #2f2a1d; --vs-err: #f48771; --vs-err-bg: #3a1d1d;
+  --vs-code: #1f1f1f; --vs-bubble: #252b35; --vs-badge: #2c2c2c; --vs-shadow: 0 1px 3px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0e1116; --surface: #151a21; --ink: #e4e8ef; --muted: #9aa4b4; --line: #29303b; --accent: #6ea5ff;
+  --vs-bg: #181818; --vs-fg: #cccccc; --vs-muted: #9d9d9d; --vs-border: #2b2b2b; --vs-input: #313131; --vs-input-border: #3c3c3c;
+  --vs-button: #0078d4; --vs-button-fg: #ffffff; --vs-button2: #313131; --vs-button2-fg: #cccccc; --vs-hover: #2a2d2e;
+  --vs-add: #81b88b; --vs-del: #f48771; --vs-warn: #e2c08d; --vs-warn-bg: #2f2a1d; --vs-err: #f48771; --vs-err-bg: #3a1d1d;
+  --vs-code: #1f1f1f; --vs-bubble: #252b35; --vs-badge: #2c2c2c; --vs-shadow: 0 1px 3px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font: 15px/1.6 var(--font-ui); padding-block: 32px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 28px; }
+header.intro { display: grid; gap: 10px; max-width: 72ch; }
+.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 { font-size: 30px; line-height: 1.2; font-weight: 600; margin: 0; text-wrap: balance; }
+h2 { font-size: 19px; line-height: 1.3; font-weight: 600; margin: 0; text-wrap: balance; }
+h3 { font-size: 14px; font-weight: 600; margin: 0; }
+p { margin: 0; }
+.lede { color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--page); }
+.control { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.control > span { font: 500 12px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.seg button { font: 500 13px/1 var(--font-ui); padding: 8px 12px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+:root[data-theme="dark"] .seg button[aria-pressed="true"] { color: #0b1220; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg button[aria-pressed="true"] { color: #0b1220; } }
+button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 24px; align-items: start; }
+.concept { display: grid; gap: 12px; align-content: start; }
+.concept-head { display: grid; gap: 4px; }
+.tag { font: 500 12px/1 var(--font-mono); color: var(--accent); letter-spacing: .04em; }
+.concept-head p { color: var(--muted); font-size: 14px; }
+.stage { overflow-x: auto; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.notes { display: grid; gap: 10px; font-size: 14px; }
+.notes ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 3px; }
+.notes .label { font: 500 12px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+section.decide { display: grid; gap: 14px; max-width: 80ch; padding: 22px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+section.decide ol, section.decide ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.kbd { font: 13px var(--font-mono); }
+
+/* ---------- Mock sidebar (shared) ---------- */
+.mock { width: var(--w, 300px); height: 640px; margin: 0 auto; display: flex; flex-direction: column; background: var(--vs-bg); color: var(--vs-fg); font: 13px/1.5 var(--vs-font); border: 1px solid var(--vs-border); overflow: hidden; }
+.mock * { min-width: 0; }
+.mock button { font: inherit; color: inherit; cursor: default; }
+.mock .scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.mock code, .mock .mono { font-family: var(--vs-mono); font-size: 12px; }
+.mock pre { margin: 6px 0; padding: 8px; background: var(--vs-code); border-radius: 3px; overflow-x: auto; font: 12px/1.45 var(--vs-mono); }
+.mock .add { color: var(--vs-add); } .mock .del { color: var(--vs-del); }
+.mock .muted { color: var(--vs-muted); }
+.mock .btn { border: 1px solid transparent; border-radius: 2px; padding: 3px 9px; background: var(--vs-button2); color: var(--vs-button2-fg); }
+.mock .btn.primary { background: var(--vs-button); color: var(--vs-button-fg); }
+.mock .icon { width: 22px; height: 22px; display: inline-grid; place-items: center; border: 0; background: transparent; border-radius: 4px; color: var(--vs-fg); font-size: 14px; line-height: 1; }
+.mock .chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 6px; border-radius: 3px; background: var(--vs-badge); font-size: 12px; line-height: 20px; }
+.mock .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock textarea { width: 100%; resize: none; border: 0; background: transparent; color: var(--vs-fg); font: inherit; outline: none; }
+.mock textarea::placeholder { color: var(--vs-muted); }
+.mock .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--vs-add); flex: none; }
+.mock .dot.warn { background: var(--vs-warn); }
+.mock .dot.off { background: var(--vs-muted); }
+.mock .trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- A: Native minimal ---------- */
+.a .top { display: flex; align-items: center; gap: 2px; padding: 4px 6px 4px 10px; border-bottom: 1px solid var(--vs-border); }
+.a .session { flex: 1; display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 3px; font-weight: 600; font-size: 12px; }
+.a .scroll { padding: 10px 12px 4px; display: grid; gap: 14px; align-content: start; }
+.a .msg { display: grid; gap: 4px; }
+.a .who { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
+.a .av { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 9px; background: var(--vs-badge); }
+.a .av.oc { background: var(--vs-button); color: var(--vs-button-fg); }
+.a .steps { display: grid; gap: 1px; font-size: 12px; }
+.a .step { display: flex; align-items: center; gap: 6px; color: var(--vs-muted); padding: 1px 0; }
+.a .step b { color: var(--vs-fg); font-weight: 500; }
+.a .step .act { margin-left: auto; display: flex; gap: 8px; color: var(--vs-button); }
+.a .confirm { border: 1px solid var(--vs-border); border-radius: 4px; padding: 10px; display: grid; gap: 8px; background: var(--vs-input); }
+.a .confirm .row { display: flex; flex-wrap: wrap; gap: 6px; }
+.a .banner { display: flex; gap: 8px; align-items: center; padding: 6px 10px; font-size: 12px; background: var(--vs-warn-bg); color: var(--vs-fg); border-bottom: 1px solid var(--vs-border); }
+.a .err { display: grid; gap: 6px; padding: 8px 10px; background: var(--vs-err-bg); border-radius: 3px; font-size: 12px; }
+.a .composer { padding: 8px 10px 10px; }
+.a .box { border: 1px solid var(--vs-input-border); background: var(--vs-input); border-radius: 4px; padding: 6px 6px 4px; display: grid; gap: 4px; }
+.a .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.a .tools { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.a .pick { display: inline-flex; align-items: center; gap: 3px; padding: 1px 5px; border-radius: 3px; font-size: 12px; color: var(--vs-muted); border: 0; background: transparent; max-width: 9.5em; }
+.a .send { margin-left: auto; }
+.a .empty { margin: auto 0; padding: 24px 4px; display: grid; gap: 6px; }
+.a .empty h4 { margin: 0; font-size: 14px; font-weight: 600; }
+
+/* ---------- B: Modern restrained ---------- */
+.b .top { display: grid; gap: 2px; padding: 10px 14px 8px; }
+.b .top .row { display: flex; align-items: center; gap: 6px; }
+.b .title { flex: 1; font-weight: 600; font-size: 13px; }
+.b .sub { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--vs-muted); }
+.b .scroll { padding: 6px 14px 8px; display: grid; gap: 16px; align-content: start; }
+.b .user { justify-self: end; max-width: 88%; background: var(--vs-bubble); border-radius: 10px 10px 2px 10px; padding: 7px 10px; display: grid; gap: 6px; }
+.b .assistant { display: grid; gap: 6px; }
+.b .group { border: 1px solid var(--vs-border); border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; font-size: 12px; }
+.b .group summary, .b .group .sum { display: flex; align-items: center; gap: 6px; color: var(--vs-muted); }
+.b .tl { display: grid; gap: 4px; padding-left: 4px; }
+.b .tl div { display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; }
+.b .st { width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center; font: 700 9px/1 var(--vs-font); }
+.b .st.done { background: var(--vs-add); color: var(--vs-bg); }
+.b .st.fail { background: var(--vs-err); color: var(--vs-bg); }
+.b .st.wait { border: 1.5px solid var(--vs-warn); color: var(--vs-warn); }
+.b .st.queued { border: 1.5px solid var(--vs-muted); }
+.b .st.run { border: 2px solid var(--vs-border); border-top-color: var(--vs-button); }
+.b .st.stale { border: 2px dashed var(--vs-muted); }
+.b .sum .st { flex: none; }
+.b .why { color: var(--vs-err); }
+.b .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--muted); align-items: center; }
+.b .legend span { display: inline-flex; align-items: center; gap: 5px; }
+@media (prefers-reduced-motion: no-preference) { .b .st.run { animation: spin 1s linear infinite; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.b .card { border-radius: 10px; background: var(--vs-input); box-shadow: var(--vs-shadow); padding: 12px; display: grid; gap: 10px; }
+.b .file { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: var(--vs-code); font-size: 12px; }
+.b .file .n { margin-left: auto; white-space: nowrap; }
+.b .actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.b .actions .btn { border-radius: 6px; padding: 4px 11px; }
+.b .linkbtn { margin-right: auto; border: 0; background: transparent; color: var(--vs-button); padding: 4px 0; }
+.b .composer { padding: 8px 12px 12px; }
+.b .box { border-radius: 12px; background: var(--vs-input); border: 1px solid var(--vs-input-border); padding: 8px 10px 6px; display: grid; gap: 6px; }
+.b .foot { display: flex; align-items: center; gap: 6px; }
+.b .plus { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--vs-input-border); background: transparent; display: grid; place-items: center; }
+.b .sel { font-size: 12px; color: var(--vs-muted); display: inline-flex; gap: 3px; align-items: center; border: 0; background: transparent; }
+.b .go { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--vs-button); color: var(--vs-button-fg); display: grid; place-items: center; }
+.b .go.off { background: var(--vs-button2); color: var(--vs-muted); }
+.b .toast { border-radius: 8px; padding: 9px 10px; background: var(--vs-err-bg); font-size: 12px; display: grid; gap: 6px; }
+.b .pillwarn { display: inline-flex; gap: 6px; align-items: center; padding: 2px 8px; border-radius: 999px; background: var(--vs-warn-bg); color: var(--vs-fg); font-size: 11.5px; }
+.b .empty { padding: 30px 6px; display: grid; gap: 8px; }
+.b .empty h4 { margin: 0; font-size: 16px; font-weight: 500; }
+
+/* ---------- C: Dense developer ---------- */
+.c { font-size: 12px; line-height: 1.45; }
+.c .top { display: flex; align-items: center; gap: 4px; padding: 3px 4px 3px 8px; border-bottom: 1px solid var(--vs-border); font: 11.5px var(--vs-mono); }
+.c .scroll { padding: 6px 0; display: grid; align-content: start; }
+.c .line { display: grid; grid-template-columns: 3.2em 1fr; gap: 6px; padding: 4px 8px; }
+.c .role { font: 11px var(--vs-mono); color: var(--vs-muted); text-align: right; padding-top: 1px; }
+.c .line.user { background: var(--vs-hover); }
+.c .tbl { display: grid; gap: 0; font: 11.5px var(--vs-mono); }
+.c .tr { display: grid; grid-template-columns: 1.1em 3.6em 1fr auto; gap: 6px; align-items: baseline; padding: 1px 0; }
+.c .tr .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c .ok { color: var(--vs-add); } .c .bad { color: var(--vs-err); } .c .wait { color: var(--vs-warn); }
+.c .strip { margin: 4px 8px; padding: 6px 8px; background: var(--vs-warn-bg); border-radius: 2px; display: grid; gap: 5px; }
+.c .strip .row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.c .strip .btn { padding: 1px 7px; }
+.c .composer { border-top: 1px solid var(--vs-border); padding: 6px 8px; display: grid; gap: 4px; }
+.c .tok { font: 11.5px var(--vs-mono); color: var(--vs-button); }
+.c .status { display: flex; gap: 8px; align-items: center; padding: 2px 8px; font: 11px var(--vs-mono); color: var(--vs-muted); border-top: 1px solid var(--vs-border); white-space: nowrap; overflow: hidden; }
+.c .status .sp { margin-left: auto; }
+.c .errline { margin: 4px 8px; padding: 5px 8px; background: var(--vs-err-bg); font-size: 11.5px; }
+.c .empty { padding: 16px 10px; display: grid; gap: 4px; font: 11.5px var(--vs-mono); color: var(--vs-muted); }
+@media (prefers-reduced-motion: no-preference) { .mock .caret::after { content: "▍"; animation: blink 1s steps(2) infinite; color: var(--vs-muted); } }
+@keyframes blink { 50% { opacity: 0; } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <p class="eyebrow">Sidecode · design exploration · Phase 4 → 5</p>
+    <h1>Three directions for the OpenCode sidebar</h1>
+    <p class="lede">Each direction shows the same session, built from what the extension does today: sessions, streaming, tool rows, edit review, context and agent/model choice. Switch the state and sidebar width to compare. Nothing here changes behavior. Approvals stay explicit, untrusted text stays plain, and connection settings stay behind a menu.</p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Preview options">
+    <div class="control"><span id="state-label">State</span>
+      <div class="seg" role="group" aria-labelledby="state-label">
+        <button id="s-empty" data-state="empty" aria-pressed="false">New session</button>
+        <button id="s-chat" data-state="chat" aria-pressed="true">Working</button>
+        <button id="s-approve" data-state="approve" aria-pressed="false">Edit approval</button>
+        <button id="s-error" data-state="error" aria-pressed="false">Connection lost</button>
+      </div></div>
+    <div class="control"><span id="width-label">Sidebar width</span>
+      <div class="seg" role="group" aria-labelledby="width-label">
+        <button id="w-240" data-width="240" aria-pressed="false">240</button>
+        <button id="w-300" data-width="300" aria-pressed="true">300</button>
+        <button id="w-380" data-width="380" aria-pressed="false">380</button>
+      </div></div>
+  </div>
+
+  <div class="board">
+    <article class="concept">
+      <div class="concept-head"><span class="tag">A · Native minimal</span><h2>Looks like the editor's own chat</h2>
+        <p>One-line header, steps as quiet single lines, approvals as an inline confirmation, and selectors inside the input box.</p></div>
+      <div class="stage"><div class="mock a" id="mock-a"></div></div>
+      <div class="notes">
+        <div><span class="label">Strengths</span><ul><li>Feels built in to VS Code and VSCodium, with no new visual language.</li><li>Least height spent on chrome, so the most conversation fits at 240px.</li><li>Closest to what the code already does, so it's the cheapest to build.</li></ul></div>
+        <div><span class="label">Trade-offs</span><ul><li>Long tool runs become a wall of grey lines.</li><li>The approval box is easy to scroll past in a long reply.</li></ul></div>
+      </div>
+    </article>
+
+    <article class="concept">
+      <div class="concept-head"><span class="tag">B · Modern restrained · chosen</span><h2>Conversation first, steps folded</h2>
+        <p>Your messages as soft bubbles, steps grouped into a collapsible block where every step shows its own result, and approvals as a raised card with the file and counts up front.</p></div>
+      <div class="stage"><div class="mock b" id="mock-b"></div></div>
+      <div class="b legend" aria-label="Step states"><span><span class="st done">✓</span>Completed</span><span><span class="st fail">✕</span>Failed</span><span><span class="st run"></span>Running</span><span><span class="st queued"></span>Queued</span><span><span class="st wait">!</span>Needs you</span></div>
+      <div class="notes">
+        <div><span class="label">Strengths</span><ul><li>Easiest to read: replies aren't interrupted by tool noise.</li><li>The approval card is the most noticeable, which suits risky edits.</li></ul></div>
+        <div><span class="label">Trade-offs</span><ul><li>Bubbles and shadows read less native, especially in high-contrast themes.</li><li>Folded steps hide what ran unless you open them.</li><li>Rounded containers cost width at 240px.</li></ul></div>
+      </div>
+    </article>
+
+    <article class="concept">
+      <div class="concept-head"><span class="tag">C · Dense developer</span><h2>A log you can scan</h2>
+        <p>Role labels in a gutter, steps as an aligned table with status glyphs and line counts, a one-line approval strip and a status line.</p></div>
+      <div class="stage"><div class="mock c" id="mock-c"></div></div>
+      <div class="notes">
+        <div><span class="label">Strengths</span><ul><li>Shows the most activity per screen, which suits long coding sessions.</li><li>Agent, model and connection are always visible in the status line.</li></ul></div>
+        <div><span class="label">Trade-offs</span><ul><li>Small monospace text is harder to read and harder on accessibility.</li><li>Approval is compact, so it relies on color and placement to stand out.</li></ul></div>
+      </div>
+    </article>
+  </div>
+
+  <section class="decide" aria-labelledby="decide-h">
+    <h2 id="decide-h">Chosen: B, with per-step status</h2>
+    <p>Every step shows how it ended, using shape as well as color, so it reads in high-contrast themes and without color vision: ✓ completed, ✕ failed (with a short reason), a spinning ring while running, an empty ring while queued, and ! when it needs you. The block header summarizes the run, and a finished run folds to one line such as "✓ 2 steps · done".</p>
+    <p>Kept from the other directions:</p>
+    <ul>
+      <li>From A: connection settings in a ⋯ menu, the session as the header title, and agent, model and context in the composer toolbar.</li>
+      <li>From C: finished step runs collapse to a single summary line.</li>
+    </ul>
+    <p>Before shipping, B gets these adjustments for the editor:</p>
+    <ol>
+      <li>In high-contrast themes, shadows and fills are replaced by the theme's contrast borders.</li>
+      <li>Below 260px wide, corner radii and side padding shrink so the bubbles and cards don't waste width.</li>
+      <li>Steps stay expandable to show their full output as plain text, as they do today.</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+const S = { state: 'chat', width: 300 };
+const userText = 'The reconnect test is flaky on CI. Can you find out why and fix it?';
+const reply = 'The retry timer isn\'t cleared when <code>disconnect()</code> runs during backoff, so a late attempt can publish a stale state. I\'ll clear it and add a guard:';
+const code = 'clearTimeout(this.retry);\nthis.retry = undefined;';
+
+function A(st) {
+  const off = st === 'error';
+  const top = `<div class="top"><div class="session"><span class="dot ${off ? 'warn' : ''}" title="${off ? 'Reconnecting' : 'Connected'}"></span><span class="trunc">${st === 'empty' ? 'New session' : 'Fix flaky reconnect test'}</span><span class="muted">▾</span></div>
+    <button class="icon" aria-label="New session" tabindex="-1">＋</button><button class="icon" aria-label="Refresh" tabindex="-1">↻</button><button class="icon" aria-label="More: connection, credentials, diagnostics" tabindex="-1">⋯</button></div>`;
+  const banner = off ? `<div class="banner"><span class="dot warn"></span><span style="flex:1">Connection lost. Reconnecting (2/3)…</span><button class="btn" tabindex="-1">Disconnect</button></div>` : '';
+  let body;
+  if (st === 'empty') body = `<div class="empty"><h4>Ask OpenCode about this project</h4><p class="muted">Attach the current file, a selection or workspace files with ＋. OpenCode asks here before using tools that need your permission.</p></div>`;
+  else {
+    body = `<div class="msg"><div class="who"><span class="av">●</span>You</div><div>${userText}</div><div class="chips"><span class="chip"><span>File</span> <span>src/adapter/connection.ts</span></span></div></div>
+    <div class="msg"><div class="who"><span class="av oc">◆</span>OpenCode <span class="muted" style="font-weight:400">· build · Second fixture</span></div>
+      <div class="steps">
+        <div class="step">✓ <span>Read</span> <b class="trunc">connection.ts</b></div>
+        <div class="step">✓ <span>Ran</span> <b class="trunc mono">npm test -- reconnect</b></div>
+        ${st === 'approve' ? '' : `<div class="step">✓ <span>Edited</span> <b>connection.ts</b> <span class="add">+4</span><span class="del">−1</span><span class="act"><span>Open</span><span>Diff</span></span></div>`}
+      </div>
+      <div>${reply}</div><pre>${code}</pre>${st === 'chat' ? '<span class="caret"></span>' : ''}</div>`;
+    if (st === 'approve') body += `<div class="confirm" role="group" aria-label="Permission requested"><strong>Allow OpenCode to edit this file?</strong>
+      <div class="row" style="align-items:center"><code class="trunc">src/adapter/connection.ts</code> <span class="add">+4</span> <span class="del">−1</span></div>
+      <div class="row"><button class="btn primary" tabindex="-1">Allow once</button><button class="btn" tabindex="-1">Deny</button><button class="btn" tabindex="-1">Review changes</button></div>
+      <span class="muted" style="font-size:12px">▸ More options</span></div>`;
+    if (off) body += `<div class="err"><span>Updates paused. Your draft and attached context are kept; history reloads when the connection returns.</span></div>`;
+  }
+  const chips = st === 'empty' ? '' : `<div class="chips"><span class="chip"><span>Selection</span> <span>connection.ts:42-58</span> <span aria-hidden="true">×</span></span></div>`;
+  const composer = `<div class="composer"><div class="box">${chips}<textarea rows="2" placeholder="${off ? 'Reconnecting…' : 'Ask OpenCode'}" tabindex="-1" ${off ? 'disabled' : ''}></textarea>
+    <div class="tools"><button class="icon" aria-label="Add context" tabindex="-1">＋</button><button class="pick" tabindex="-1"><span class="trunc">build</span>▾</button><button class="pick" tabindex="-1"><span class="trunc">Second fixture</span>▾</button>
+    <button class="icon send" aria-label="${st === 'chat' ? 'Stop' : 'Send'}" tabindex="-1">${st === 'chat' || st === 'approve' ? '■' : '➤'}</button></div></div></div>`;
+  return top + banner + `<div class="scroll">${body}</div>` + composer;
+}
+
+// Each step shows its own state (shape + color, never color alone); the header summarizes the run.
+const glyph = { done: '✓', fail: '✕', wait: '!', queued: '', run: '', stale: '' };
+const label = { done: 'Completed', fail: 'Failed', wait: 'Waiting for your approval', queued: 'Queued', run: 'Running', stale: 'Status unknown while disconnected' };
+const step = (state, text, right, mono) => `<div><span class="st ${state}" role="img" aria-label="${label[state]}">${glyph[state]}</span><span class="trunc${mono ? ' mono' : ''}">${text}</span><span>${right}</span></div>`;
+function stepGroup(st) {
+  const read = step('done', 'Read connection.ts', '<span class="muted">0.1s</span>');
+  const test = step('fail', 'npm test -- reconnect', '<span class="why">1 test failed</span>', true);
+  const steps = {
+    chat: { sum: '<span class="st run" role="img" aria-label="Running"></span><span>4 steps · running</span>', rows: [read, test, step('done', 'Edit connection.ts', '<span class="add">+4</span> <span class="del">−1</span>'), step('run', 'npm test -- reconnect', '<span class="muted">2.1s</span>', true)] },
+    approve: { sum: '<span class="st wait" role="img" aria-label="Waiting">!</span><span>3 steps · waiting for you</span>', rows: [read, test, step('wait', 'Edit connection.ts', '<span class="muted">needs approval</span>')] },
+    error: { sum: '<span class="st stale" role="img" aria-label="Unknown"></span><span>4 steps · updates paused</span>', rows: [read, test, step('done', 'Edit connection.ts', '<span class="add">+4</span> <span class="del">−1</span>'), step('stale', 'npm test -- reconnect', '<span class="muted">unknown</span>', true)] },
+  }[st];
+  const done = `<div class="group"><div class="sum">▸ <span class="st done" role="img" aria-label="Completed">✓</span><span>2 steps · done</span><span class="muted" style="margin-left:auto">earlier</span></div></div>`;
+  return (st === 'chat' ? done : '') + `<div class="group"><div class="sum">▾ ${steps.sum}</div><div class="tl">${steps.rows.join('')}</div></div>`;
+}
+function B(st) {
+  const off = st === 'error';
+  const top = `<div class="top"><div class="row"><span class="title trunc">${st === 'empty' ? 'New session' : 'Fix flaky reconnect test'}</span><button class="icon" aria-label="Sessions" tabindex="-1">☰</button><button class="icon" aria-label="New session" tabindex="-1">＋</button><button class="icon" aria-label="More" tabindex="-1">⋯</button></div>
+    <div class="sub">${off ? '<span class="pillwarn"><span class="dot warn"></span>Reconnecting (2/3)</span>' : '<span class="dot"></span>Connected · sidecode'}</div></div>`;
+  let body;
+  if (st === 'empty') body = `<div class="empty"><h4>What should OpenCode work on?</h4><p class="muted">It runs on your OpenCode server and asks before changing files.</p></div>`;
+  else {
+    body = `<div class="user"><div>${userText}</div><div><span class="chip"><span>connection.ts</span></span></div></div>
+    <div class="assistant">${stepGroup(st)}
+      <div>${reply}</div><pre>${code}</pre>${st === 'chat' ? '<span class="caret"></span>' : ''}</div>`;
+    if (st === 'approve') body += `<div class="card" role="group" aria-label="Permission requested"><strong>OpenCode wants to edit 1 file</strong>
+      <div class="file"><span class="trunc mono">src/adapter/connection.ts</span><span class="n"><span class="add">+4</span> <span class="del">−1</span></span></div>
+      <div class="actions"><button class="linkbtn" tabindex="-1">Review changes</button><button class="btn" tabindex="-1">Deny</button><button class="btn primary" tabindex="-1">Allow once</button></div></div>`;
+    if (off) body += `<div class="toast">Connection lost. Your draft and context are kept and history reloads after reconnecting. <span><button class="btn" tabindex="-1">Disconnect</button></span></div>`;
+  }
+  const composer = `<div class="composer"><div class="box">${st === 'empty' ? '' : '<div><span class="chip"><span>connection.ts:42-58</span> <span aria-hidden="true">×</span></span></div>'}
+    <textarea rows="2" placeholder="${off ? 'Waiting for connection…' : 'Message OpenCode'}" tabindex="-1" ${off ? 'disabled' : ''}></textarea>
+    <div class="foot"><button class="plus" aria-label="Add context" tabindex="-1">＋</button><button class="sel" tabindex="-1">Build ▾</button><span class="muted">·</span><button class="sel trunc" tabindex="-1">Second fixture ▾</button><button class="go ${off ? 'off' : ''}" aria-label="Send" tabindex="-1">${st === 'chat' || st === 'approve' ? '■' : '↑'}</button></div></div></div>`;
+  return top + `<div class="scroll">${body}</div>` + composer;
+}
+
+function C(st) {
+  const off = st === 'error';
+  const top = `<div class="top"><span class="dot ${off ? 'warn' : ''}"></span><span class="trunc" style="flex:1">${st === 'empty' ? 'ses · new' : 'ses · Fix flaky reconnect test'}</span><button class="icon" aria-label="New session" tabindex="-1">＋</button><button class="icon" aria-label="Refresh" tabindex="-1">↻</button><button class="icon" aria-label="More" tabindex="-1">⋯</button></div>`;
+  let body;
+  if (st === 'empty') body = `<div class="empty"><span>no messages yet</span><span>＋ ctx attaches file, selection or workspace files</span><span>tool approvals appear inline</span></div>`;
+  else {
+    body = `<div class="line user"><span class="role">you</span><div>${userText} <span class="tok">@connection.ts</span></div></div>
+    <div class="line"><span class="role">oc</span><div style="display:grid;gap:4px"><div class="tbl">
+      <div class="tr"><span class="ok">✓</span><span>read</span><span class="t">src/adapter/connection.ts</span><span class="muted">0.1s</span></div>
+      <div class="tr"><span class="ok">✓</span><span>bash</span><span class="t">npm test -- reconnect</span><span class="muted">3.9s</span></div>
+      <div class="tr"><span class="${st === 'approve' ? 'wait' : 'ok'}">${st === 'approve' ? '?' : '✓'}</span><span>edit</span><span class="t">src/adapter/connection.ts</span><span>${st === 'approve' ? '<span class="wait">ask</span>' : '<span class="add">+4</span> <span class="del">−1</span>'}</span></div>
+    </div><div>${reply}</div><pre>${code}</pre>${st === 'chat' ? '<span class="caret"></span>' : ''}</div></div>`;
+    if (st === 'approve') body += `<div class="strip" role="group" aria-label="Permission requested"><span class="mono"><span class="wait">edit</span> src/adapter/connection.ts <span class="add">+4</span> <span class="del">−1</span></span>
+      <div class="row"><button class="btn primary" tabindex="-1">Allow once</button><button class="btn" tabindex="-1">Deny</button><button class="btn" tabindex="-1">Diff</button><span class="muted">⋯</span></div></div>`;
+    if (off) body += `<div class="errline">connection lost · retry 2/3 · draft kept</div>`;
+  }
+  const composer = `<div class="composer">${st === 'empty' ? '' : '<div><span class="tok">@connection.ts:42-58</span> <span class="muted">×</span></div>'}<textarea rows="2" placeholder="${off ? 'offline' : 'message · ⌃↵ send'}" tabindex="-1" ${off ? 'disabled' : ''}></textarea></div>
+    <div class="status"><span>${off ? '<span class="wait">● reconnecting</span>' : '<span class="ok">●</span> connected'}</span><span>build</span><span class="trunc">fixture/second</span><span class="sp">ctx 1</span></div>`;
+  return top + `<div class="scroll">${body}</div>` + composer;
+}
+
+function render() {
+  document.getElementById('mock-a').innerHTML = A(S.state);
+  document.getElementById('mock-b').innerHTML = B(S.state);
+  document.getElementById('mock-c').innerHTML = C(S.state);
+  document.querySelectorAll('.mock').forEach(m => m.style.setProperty('--w', S.width + 'px'));
+  document.querySelectorAll('[data-state]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.state === S.state)));
+  document.querySelectorAll('[data-width]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.width) === S.width)));
+}
+document.querySelectorAll('[data-state]').forEach(b => b.addEventListener('click', () => { S.state = b.dataset.state; render(); }));
+document.querySelectorAll('[data-width]').forEach(b => b.addEventListener('click', () => { S.width = Number(b.dataset.width); render(); }));
+render();
+</script>
