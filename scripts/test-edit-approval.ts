@@ -81,3 +81,22 @@ await withServer({ permission: { edit: 'ask' } }, async (chat, file) => {
   assert.equal(await edit(chat, file), 'asked', 'configuration still requires approval');
   console.log('PASS: a configuration that requires approval cannot be relaxed from Sidecode');
 });
+
+// Rename (the other per-session setting): OpenCode keeps the name through runs and its own
+// automatic title, and the edit rule survives a rename (a PATCH of the title only).
+await withServer({}, async (chat, file) => {
+  chat.askNewSessions = true;
+  await chat.create(); await waitFor(chat, () => idle(chat) && session(chat)?.edit === 'ask', 'session');
+  await chat.rename(chat.state.selectedId!, '  Parser refactor  ');
+  assert.equal(chat.state.error, null); assert.equal(session(chat).title, 'Parser refactor');
+  assert.equal(await edit(chat, file), 'asked', 'edit rule kept after rename');
+  await chat.refresh();
+  assert.equal(session(chat).title, 'Parser refactor', 'automatic title does not replace the name');
+  await chat.rename(chat.state.selectedId!, 'Parser refactor, part 2');
+  await chat.send(chat.state.selectedId!, 'hello', `req_${Date.now()}`);
+  await waitFor(chat, () => idle(chat) && chat.state.messages.some(m => m.role === 'assistant' && m.status === 'complete' && m.text.includes('hello')), 'reply');
+  await chat.refresh();
+  assert.equal(session(chat).title, 'Parser refactor, part 2', 'renamed after messages: kept through the next run');
+  assert.equal(session(chat).edit, 'ask');
+  console.log('PASS: rename persists through runs and refresh, keeps the edit rule, automatic title never overwrites it');
+});

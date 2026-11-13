@@ -20,6 +20,8 @@ export interface ConversationApi {
   create(signal: AbortSignal, ask?: boolean): Promise<SessionSummary>;
   /** Replaces the session's `edit` / `*` rule, keeping its other rules (2.x replaces the whole list). */
   setEditRule(id: string, rule: 'ask' | 'allow', signal: AbortSignal): Promise<SessionSummary>;
+  /** Sets the session's title (PATCH; 2.3.0 keeps it: the automatic title never overwrites it). */
+  rename(id: string, title: string, signal: AbortSignal): Promise<SessionSummary>;
   snapshot(id: string, limit: number, signal: AbortSignal): Promise<ConversationSnapshot>;
   options(signal: AbortSignal): Promise<ServerOptions>;
   /** Queues OpenCode's compaction; it then runs like a reply (the session is busy until it ends). */
@@ -273,6 +275,10 @@ export function createConversations(options: ConnectionOptions, fetcher: typeof 
       const current = await get(id, signal);
       const others = Array.isArray(current.permissions) ? current.permissions.filter(item => record(item) && !(item.action === 'edit' && anyFile(item))) : [];
       await api.patch(session(id), { body: { permissions: [...others, { action: 'edit', resource: '*', effect: rule }] }, signal });
+      return sessionSummary(await get(id, signal), directory);
+    },
+    async rename(id, title, signal) {
+      await api.patch(session(id), { body: { title }, signal });
       return sessionSummary(await get(id, signal), directory);
     },
     async snapshot(id, limit, signal) {

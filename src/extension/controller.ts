@@ -159,6 +159,7 @@ export class Controller implements vscode.Disposable {
         // Remember the choice for new sessions (extension storage, not user settings).
         this.chat.askNewSessions = command.ask; void this.context.globalState?.update('askBeforeEdits', command.ask);
         await this.chat.setEditApproval(command.sessionId, command.ask); break;
+      case 'rename': await this.chat.rename(command.sessionId, command.title); break;
       case 'older': await this.chat.older(); break;
       case 'permission': await this.chat.reply(command.sessionId, command.requestId, command.reply); break;
       case 'addContext': await this.addContext(command.sessionId, command.source); break;

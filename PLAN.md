@@ -711,3 +711,18 @@ branch (pushed, commit 4bb4a0c).
   editor, lifecycle, placement and coexistence suites pass on Linux (VSCodium).
 - Not supported/claimed: custom agents (2.3.0 does not list them), early file names
   for steps being written (2.3.0 sends no argument deltas), macOS (user to verify).
+
+## Rename session (user request, like Claude Code, 2026-11-13)
+
+- Top bar: ✎ button beside the session picker, or F2 on the picker, swaps the name for a
+  field. Enter or blur saves; Escape cancels; unchanged, empty or over-200-character names
+  send nothing. Focus returns to the picker. Disabled while another operation runs.
+- Host: `rename` message (validated: session ID, 1–200 characters, control characters
+  become spaces) → `Chat.rename` → `PATCH /api/session/:id { title }`; the session list
+  takes the server's read-back. A failure shows `renameFailed` with Retry loading.
+- Verified against OpenCode 2.3.0 (`scripts/discover-v2-rename.ts`, rename block in
+  `test:edit-approval`): the name persists through runs and refresh, the automatic title
+  never overwrites it, the session's edit rule is unaffected.
+- Tests: unit (validation, unchanged/empty/too long/unknown, failure), webview (pencil,
+  F2, Enter, Escape, blur, focus, 16 theme/width cases with no overflow), native chat
+  suite in VSCodium unchanged and passing.

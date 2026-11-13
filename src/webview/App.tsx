@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { contextSources, isHostMessage, type ConnectionAction, type WebviewMessage } from '../shared/protocol';
 import { disconnected, errorMessages, type ConnectionState } from '../shared/connection';
-import { chatErrors, emptyChat, type ChatState, type ModelOption, type Selection } from '../shared/chat';
+import { chatErrors, emptyChat, limits, sessionTitle, type ChatState, type ModelOption, type Selection } from '../shared/chat';
 import { Markdown } from './Markdown';
 import { AttachmentList, fileTools, FileChanges, formatElapsed, Mark, PendingContext, PermissionCard, RetryNotice, StepGroup, Thinking } from './Activity';
 
@@ -21,6 +21,12 @@ export function App({ bridge }: { bridge: HostBridge }) {
   const [now, setNow] = useState(() => Date.now());
   /** Explicit per-session choices; otherwise the session's last-used agent/model. */
   const [selections, setSelections] = useState<Record<string, Selection>>({});
+  /** Name being typed for the selected session (null: not renaming). */
+  const [renaming, setRenaming] = useState<{ id: string; text: string } | null>(null);
+  /** Set once Enter/Escape/blur has finished a rename, so the closing blur does not save again. */
+  const renameDone = useRef(false);
+  /** Enter/Escape return focus to the session picker once the field has closed. */
+  const refocus = useRef(false);
   const submission = useRef<{ id: string; session: string; text: string } | null>(null);
   const conversation = useRef<HTMLElement>(null);
   const follow = useRef(true);
@@ -47,6 +53,19 @@ export function App({ bridge }: { bridge: HostBridge }) {
   const canSend = online && !!chat.selectedId && !chat.busy && !chat.waiting && !chat.loading && chat.operation === 'none' && !pending;
   const running = !!chat.selectedId && (chat.busy || chat.waiting);
   const title = chat.sessions.find(s => s.id === chat.selectedId)?.title;
+  const canRename = online && !!chat.selectedId && chat.operation === 'none';
+  const startRename = () => { if (canRename) { renameDone.current = false; setRenaming({ id: chat.selectedId!, text: title ?? '' }); } };
+  /** Saves only a valid, changed name; anything else leaves the name as it was. */
+  const finishRename = (save: boolean) => {
+    if (!renaming || renameDone.current) return;
+    renameDone.current = true;
+    const next = sessionTitle(renaming.text);
+    if (save && next && next !== title && renaming.id === chat.selectedId) bridge.postMessage({ version: 1, type: 'rename', sessionId: renaming.id, title: next });
+    setRenaming(null);
+  };
+  useEffect(() => { if (!renaming && refocus.current) { refocus.current = false; document.getElementById('session')?.focus(); } }, [renaming]);
+  // A rename in progress ends (unsaved) when the session changes or the connection drops.
+  useEffect(() => { if (renaming && (renaming.id !== chat.selectedId || !online)) { renameDone.current = true; setRenaming(null); } }, [chat.selectedId, online, renaming]);
   const lastAssistant = [...chat.messages].reverse().find(m => m.role === 'assistant')?.id;
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
@@ -180,9 +199,17 @@ export function App({ bridge }: { bridge: HostBridge }) {
   return <main className="shell" aria-label="OpenCode chat">
     <header className="header">
       <div className="title-row">
-        <select id="session" className="session-select" aria-label="Session" title={title ?? 'Choose a session'} value={chat.selectedId ?? ''} disabled={!online || chat.operation !== 'none'} onChange={event => {
+        {renaming ? <input className="session-rename" aria-label="Session name" placeholder="Session name" autoFocus maxLength={limits.sessionTitle} value={renaming.text}
+          onChange={event => setRenaming({ ...renaming, text: event.target.value })} onBlur={() => finishRename(true)}
+          onKeyDown={event => {
+            if (event.key === 'Enter') { event.preventDefault(); refocus.current = true; finishRename(true); }
+            else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); refocus.current = true; finishRename(false); }
+          }} />
+        : <select id="session" className="session-select" aria-label="Session" aria-keyshortcuts="F2" title={title ? `${title} (F2 to rename)` : 'Choose a session'} value={chat.selectedId ?? ''} disabled={!online || chat.operation !== 'none'}
+          onKeyDown={event => { if (event.key === 'F2') { event.preventDefault(); startRename(); } }} onChange={event => {
           follow.current = true; bridge.postMessage({ version: 1, type: 'selectSession', sessionId: event.target.value });
-        }}><option value="" disabled>{chat.sessions.length ? 'Choose a session' : online ? 'No sessions yet' : 'OpenCode'}</option>{chat.sessions.map(session => <option key={session.id} value={session.id}>{session.title}</option>)}</select>
+        }}><option value="" disabled>{chat.sessions.length ? 'Choose a session' : online ? 'No sessions yet' : 'OpenCode'}</option>{chat.sessions.map(session => <option key={session.id} value={session.id}>{session.title}</option>)}</select>}
+        {chat.selectedId && <button type="button" className="icon" aria-label="Rename session" title="Rename session (F2)" disabled={!canRename || !!renaming} onClick={startRename}>✎</button>}
         <button type="button" className="icon" aria-label="New session" title="New session" disabled={!online || chat.operation !== 'none'} onClick={() => action('newSession')}>+</button>
         <button type="button" className="icon" aria-label="Connection options" title="Connection options" aria-expanded={menu} aria-controls="connection-menu" ref={menuButton} onKeyDown={menu ? closeOnEscape(() => setMenu(false), menuButton) : undefined} onClick={() => setMenu(open => !open)}>⋯</button>
       </div>

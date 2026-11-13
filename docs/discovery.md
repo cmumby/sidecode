@@ -43,6 +43,10 @@ its own small HTTP client (`src/adapter/api.ts`) with paths from the generated c
 - `POST /api/session { location, permissions? }` → `{ data: SessionInfo }`.
 - `PATCH /api/session/:id { title?, permissions?, archived? }` → 204. `permissions`
   replaces the session's whole rule list.
+- Rename: `PATCH { title }` → 204. The name is kept through later runs, and the automatic
+  title (written after the first reply) never replaces a name set before or after it. An
+  empty title clears the name; any length is accepted (Sidecode allows 1–200 characters).
+  Unknown session → 404 `{ _tag: "SessionNotFoundError" }` (`scripts/discover-v2-rename.ts`).
 - `POST /api/session/:id/prompt { id?, text, files? }` → `{ data: inbox item }`. Our
   `msg_…` IDs are accepted. The prompt waits in `GET /api/session/:id/inbox` until the
   run starts.

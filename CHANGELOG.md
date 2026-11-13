@@ -15,6 +15,9 @@
   conversation** (OpenCode's own summarize); compaction shows as a divider with the
   summary folded; Stop works while compacting.
 - Each finished exchange shows its duration and generated tokens.
+- **Rename a session** from the top bar: the pencil button or F2 on the session picker
+  turns the name into a field (Enter or clicking away saves, Escape cancels). OpenCode
+  keeps the name; its automatic title never replaces it.
 - **Edits: ask / auto** toggle per session (OpenCode session permission rule; no
   configuration change); remembered as the default for new sessions; never relaxes a
   configuration that requires approval.

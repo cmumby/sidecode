@@ -46,8 +46,9 @@ export const chatErrors = {
   updateFailed: 'Could not confirm the change to edit approval. Refresh to see the current setting.',
   compactFailed: 'Could not confirm that the conversation was compacted. Refresh to see whether a summary was added before trying again.',
   sessionMissing: 'This session is no longer available in the selected project.',
+  renameFailed: 'Could not confirm the new session name. Refresh to see the current name.',
 } as const;
-export const chatOperations = ['none', 'creating', 'sending', 'stopping', 'replying', 'compacting', 'updating'] as const;
+export const chatOperations = ['none', 'creating', 'sending', 'stopping', 'replying', 'compacting', 'updating', 'renaming'] as const;
 export interface ChatState {
   sessions: SessionSummary[];
   selectedId: string | null;
@@ -71,7 +72,7 @@ export interface ChatState {
   submitted: string | null;
   hasMore: boolean;
 }
-export const limits = { toolName: 100, toolTitle: 500, toolDetail: 4000, tools: 200, agents: 50, models: 500, attachments: 50, context: 20, contextLabel: 300, contextNote: 200, selection: 100000, optionName: 200, description: 300, reasoning: 20000, retryMessage: 500, permissions: 20, patterns: 20, pattern: 500 } as const;
+export const limits = { sessionTitle: 200, toolName: 100, toolTitle: 500, toolDetail: 4000, tools: 200, agents: 50, models: 500, attachments: 50, context: 20, contextLabel: 300, contextNote: 200, selection: 100000, optionName: 200, description: 300, reasoning: 20000, retryMessage: 500, permissions: 20, patterns: 20, pattern: 500 } as const;
 export function emptyChat(): ChatState { return { sessions: [], selectedId: null, messages: [], permissions: [], context: [], agents: [], models: [], retry: null, editPolicy: null, used: { agent: null, model: null }, busy: false, waiting: false, loading: false, operation: 'none', error: null, submitted: null, hasMore: false }; }
 export function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
 export function identifier(value: unknown): value is string { return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value); }
@@ -123,4 +124,10 @@ export function isChatState(value: unknown): value is ChatState {
     && chatOperations.some(o => o === value.operation)
     && (value.error === null || (typeof value.error === 'string' && Object.hasOwn(chatErrors, value.error)))
     && (value.submitted === null || identifier(value.submitted));
+}
+/** A session name typed by the user: trimmed, one line, 1–200 characters (OpenCode itself accepts any length, and an empty title clears the name). */
+export function sessionTitle(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const title = [...value].map(c => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127 ? ' ' : c).join('').replace(/ {2,}/g, ' ').trim();
+  return title && title.length <= limits.sessionTitle ? title : null;
 }

@@ -227,6 +227,25 @@ try {
     await toggle.filter({ hasText: /^Edits: blocked$/ }).waitFor({ timeout: 2000 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${theme.name} ${width}: toolbar overflow`);
     if (width === 240) await page.screenshot({ path: join(output, `${theme.name}-toggle.png`) });
+    // Rename: pencil or F2 turns the title into a field; Enter saves, Escape and unchanged names send nothing.
+    await page.evaluate((state) => window.postMessage({ version: 1, type: 'chat', state }, '*'), { ...chatState(false), sessions: [{ id: 'ses_a', title: 'Session', edit: null }] });
+    const renames = async () => (await page.evaluate<{ type: string }[]>('window.sentMessages')).filter(m => m.type === 'rename');
+    const before = (await renames()).length;
+    await page.getByRole('button', { name: 'Rename session' }).click();
+    const field = page.getByRole('textbox', { name: 'Session name' });
+    assert.equal(await field.inputValue(), 'Session'); assert.equal(await field.evaluate(el => el === document.activeElement), true, 'field focused');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${theme.name} ${width}: rename overflow`);
+    if (width === 240) await page.screenshot({ path: join(output, `${theme.name}-rename.png`) });
+    await field.fill('Discarded'); await field.press('Escape');
+    assert.equal(await field.count(), 0, 'Escape closes the field'); assert.equal((await renames()).length, before, 'Escape sends nothing');
+    await page.locator('#session').focus(); await page.keyboard.press('F2');
+    await field.fill('  Parser refactor  '); await field.press('Enter');
+    assert.deepEqual((await renames()).at(-1), { version: 1, type: 'rename', sessionId: 'ses_a', title: 'Parser refactor' });
+    assert.equal(await page.locator('#session').evaluate(el => el === document.activeElement), true, 'focus returns to the session picker');
+    await page.getByRole('button', { name: 'Rename session' }).click(); await field.fill('Session'); await field.blur();
+    assert.equal((await renames()).length, before + 1, 'unchanged name sends nothing');
+    await page.getByRole('button', { name: 'Rename session' }).click(); await field.fill(''); await field.blur();
+    assert.equal((await renames()).length, before + 1, 'empty name sends nothing');
     // Local-model experience: reply stats, context meter, near-limit warning with Compact, compaction rows.
     const message = (id: string, role: string, extra: Record<string, unknown> = {}) => ({ id, role, text: role === 'user' ? 'Refactor the parser' : 'Done.', status: role === 'user' ? 'sent' : 'complete', otherParts: false, tools: [], attachments: [], reasoning: '', time: { created: 1794537780000, completed: role === 'user' ? null : 1794537840000 }, tokens: null, kind: 'message', ...extra });
     const usage = { ...chatState(false), hasMore: false, context: [], messages: [message('msg_u1', 'user'), message('msg_a1', 'assistant', { tokens: { context: 29200, output: 450 } })] };

@@ -1,4 +1,4 @@
-import { identifier, isChatState, isModelRef, optionName, permissionReplies, type ChatState, type ModelRef, type PermissionReply } from './chat';
+import { identifier, isChatState, sessionTitle, isModelRef, optionName, permissionReplies, type ChatState, type ModelRef, type PermissionReply } from './chat';
 import { errorMessages, phases, type ConnectionState } from './connection';
 export const actions = ['ready', 'connect', 'disconnect', 'configure', 'credentials', 'clearCredentials', 'diagnostics'] as const;
 export type ConnectionAction = typeof actions[number];
@@ -11,6 +11,7 @@ export type ChatCommand = { version: 1; type: 'refresh' | 'newSession' | 'older'
   | { version: 1; type: 'reviewPermission'; sessionId: string; requestId: string }
   /** Ask before file edits in this session (and, as the remembered default, in new sessions). */
   | { version: 1; type: 'editApproval'; sessionId: string; ask: boolean }
+  | { version: 1; type: 'rename'; sessionId: string; title: string }
   | { version: 1; type: 'openChange'; sessionId: string; toolId: string; view: 'file' | 'diff' };
 export const contextSources = ['activeFile', 'selection', 'workspace'] as const;
 export type WebviewMessage = { version: 1; type: ConnectionAction } | ChatCommand;
@@ -26,6 +27,7 @@ export function isWebviewMessage(value: unknown): value is WebviewMessage {
   if (hasExactKeys(value, ['version', 'type', 'sessionId'])) return value.version === 1 && ['selectSession', 'stop', 'compact'].includes(String(value.type)) && identifier(value.sessionId);
   if (hasExactKeys(value, ['version', 'type', 'sessionId', 'source'])) return value.version === 1 && value.type === 'addContext' && identifier(value.sessionId) && contextSources.some(s => s === value.source);
   if (hasExactKeys(value, ['version', 'type', 'sessionId', 'ask'])) return value.version === 1 && value.type === 'editApproval' && identifier(value.sessionId) && typeof value.ask === 'boolean';
+  if (hasExactKeys(value, ['version', 'type', 'sessionId', 'title'])) return value.version === 1 && value.type === 'rename' && identifier(value.sessionId) && sessionTitle(value.title) !== null;
   if (hasExactKeys(value, ['version', 'type', 'sessionId', 'requestId'])) return value.version === 1 && value.type === 'reviewPermission' && identifier(value.sessionId) && identifier(value.requestId);
   if (hasExactKeys(value, ['version', 'type', 'sessionId', 'toolId', 'view'])) return value.version === 1 && value.type === 'openChange' && identifier(value.sessionId) && identifier(value.toolId) && (value.view === 'file' || value.view === 'diff');
   if (hasExactKeys(value, ['version', 'type', 'sessionId', 'contextId'])) return value.version === 1 && value.type === 'removeContext' && identifier(value.sessionId) && identifier(value.contextId);

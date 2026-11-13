@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { emptyChat, identifier, limits, record, type ChatMessage, type ChatState, type ContextItem, type PermissionReply, type Selection } from '../shared/chat';
+import { emptyChat, identifier, limits, record, sessionTitle, type ChatMessage, type ChatState, type ContextItem, type PermissionReply, type Selection } from '../shared/chat';
 import { partKey, type ChangeSource, type ContextPart, type ConversationApi, type ProjectedMessage } from './conversations';
 /** Host-side pending attachment: the display item plus the part that will be sent. */
 export interface PendingContext { item: ContextItem; part: ContextPart }
@@ -241,7 +241,7 @@ export class Chat {
     this.update({ operation, error: null });
     try { await work(api, abort.signal); }
     catch {
-      if (this.api === api && this.mutation === abort) this.update({ error: operation === 'sending' ? 'sendUncertain' : operation === 'creating' ? 'createUncertain' : operation === 'replying' ? 'replyUncertain' : operation === 'compacting' ? (this.stoppedCompaction ? null : 'compactFailed') : operation === 'updating' ? 'updateFailed' : 'stopFailed' });
+      if (this.api === api && this.mutation === abort) this.update({ error: operation === 'sending' ? 'sendUncertain' : operation === 'creating' ? 'createUncertain' : operation === 'replying' ? 'replyUncertain' : operation === 'compacting' ? (this.stoppedCompaction ? null : 'compactFailed') : operation === 'updating' ? 'updateFailed' : operation === 'renaming' ? 'renameFailed' : 'stopFailed' });
     } finally {
       clearTimeout(timeout);
       if (this.mutation === abort) { this.mutation = undefined; this.update({ operation: 'none' }); this.invalidate(); }
@@ -306,6 +306,16 @@ export class Chat {
     if ((current === 'ask') === ask) return;
     await this.mutate('updating', async (api, signal) => {
       const updated = await api.setEditRule(sessionId, ask ? 'ask' : 'allow', signal);
+      if (this.api === api && !signal.aborted) this.update({ sessions: this.state.sessions.map(s => s.id === updated.id ? updated : s) });
+    });
+  }
+  /** Explicit only. Any listed session (also while it runs); no request when the name is unchanged or not valid. */
+  async rename(sessionId: string, input: string): Promise<void> {
+    const title = sessionTitle(input);
+    const session = this.state.sessions.find(s => s.id === sessionId);
+    if (!title || !session || session.title === title) return;
+    await this.mutate('renaming', async (api, signal) => {
+      const updated = await api.rename(sessionId, title, signal);
       if (this.api === api && !signal.aborted) this.update({ sessions: this.state.sessions.map(s => s.id === updated.id ? updated : s) });
     });
   }

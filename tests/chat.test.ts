@@ -7,7 +7,7 @@ import { emptyChat, isChatState, type ChatMessage } from '../src/shared/chat';
 import { isHostMessage, isWebviewMessage } from '../src/shared/protocol';
 const text = (id: string, content: string): ChatMessage => ({ id, role: 'assistant', text: content, status: 'complete', otherParts: false, tools: [], attachments: [], reasoning: '', time: { created: 1794537780961, completed: 1794537781509 }, tokens: null, kind: 'message' });
 function api(patch: Partial<ConversationApi> = {}): ConversationApi {
-  return { list: async () => [{ id: 'ses_a', title: 'A', edit: null }, { id: 'ses_b', title: 'B', edit: null }], create: async () => ({ id: 'ses_new', title: 'New', edit: null }), setEditRule: async (id, rule) => ({ id, title: 'A', edit: rule }), snapshot: async id => ({ permissions: [], messages: [text(`msg_${id}`, id)], busy: false, waiting: false, hasMore: false }), compact: async () => {}, options: async () => ({ agents: [{ name: 'build', description: '' }, { name: 'plan', description: 'Plan' }], models: [{ providerID: 'local', modelID: 'm/1.5', name: 'M', provider: 'Local', context: 32000 }], editPolicy: null }), send: async () => {}, stop: async () => {}, reply: async () => {}, shellOutput: async (_id, cursor) => ({ text: '', cursor }), ...patch };
+  return { list: async () => [{ id: 'ses_a', title: 'A', edit: null }, { id: 'ses_b', title: 'B', edit: null }], create: async () => ({ id: 'ses_new', title: 'New', edit: null }), setEditRule: async (id, rule) => ({ id, title: 'A', edit: rule }), rename: async (id, title) => ({ id, title, edit: null }), snapshot: async id => ({ permissions: [], messages: [text(`msg_${id}`, id)], busy: false, waiting: false, hasMore: false }), compact: async () => {}, options: async () => ({ agents: [{ name: 'build', description: '' }, { name: 'plan', description: 'Plan' }], models: [{ providerID: 'local', modelID: 'm/1.5', name: 'M', provider: 'Local', context: 32000 }], editPolicy: null }), send: async () => {}, stop: async () => {}, reply: async () => {}, shellOutput: async (_id, cursor) => ({ text: '', cursor }), ...patch };
 }
 async function setup(source: ConversationApi) { const chat = new Chat(1); chat.attach(source); chat.connection(true); await chat.refresh(); return chat; }
 /** OpenCode 2.3.0 history items (see scripts/discover-v2.ts). */
@@ -462,6 +462,25 @@ test('edit approval: rules are read from sessions and config; a config that asks
   }
   assert.equal(isWebviewMessage({ version: 1, type: 'editApproval', sessionId: 'ses_a', ask: true }), true);
   assert.equal(isWebviewMessage({ version: 1, type: 'editApproval', sessionId: 'ses_a', ask: 'yes' }), false);
+});
+test('renaming a session is explicit, trimmed and validated', async () => {
+  const calls: [string, string][] = [];
+  const chat = await setup(api({ rename: async (id, title) => { calls.push([id, title]); return { id, title, edit: null }; } }));
+  try {
+    await pause(5);
+    await chat.rename('ses_a', '  Fix the\nlogin bug  ');
+    assert.deepEqual(calls, [['ses_a', 'Fix the login bug']]);
+    assert.equal(chat.state.sessions.find(s => s.id === 'ses_a')?.title, 'Fix the login bug');
+    await chat.rename('ses_a', 'Fix the login bug'); await chat.rename('ses_a', '   '); await chat.rename('ses_a', 'x'.repeat(201)); await chat.rename('ses_missing', 'Name');
+    assert.equal(calls.length, 1, 'no request when unchanged, empty, too long or unknown');
+    await chat.rename('ses_b', 'Other'); assert.deepEqual(calls.at(-1), ['ses_b', 'Other'], 'any listed session');
+  } finally { chat.dispose(); }
+  const failing = await setup(api({ rename: async () => { throw new Error('offline'); } }));
+  try { await pause(5); await failing.rename('ses_a', 'New name'); assert.equal(failing.state.error, 'renameFailed'); assert.equal(failing.state.sessions.find(s => s.id === 'ses_a')?.title, 'A'); } finally { failing.dispose(); }
+  assert.equal(isWebviewMessage({ version: 1, type: 'rename', sessionId: 'ses_a', title: 'Name' }), true);
+  assert.equal(isWebviewMessage({ version: 1, type: 'rename', sessionId: 'ses_a', title: '' }), false);
+  assert.equal(isWebviewMessage({ version: 1, type: 'rename', sessionId: 'ses_a', title: 'x'.repeat(201) }), false);
+  assert.equal(isWebviewMessage({ version: 1, type: 'rename', sessionId: '../x', title: 'Name' }), false);
 });
 test('new sessions use the remembered edit-approval default', async () => {
   const created: boolean[] = [];

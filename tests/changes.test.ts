@@ -73,7 +73,7 @@ test('change sources stay host-only and are found only for the selected session'
   const edit = { type: 'tool', id: 'call_t', name: 'edit', state: { status: 'completed', input: { path: 'src/a.ts' }, content: [{ type: 'text', text: 'ok' }], metadata: { files: [{ file: 'src/a.ts', patch: editPatch, status: 'modified' }] } }, time: { created: 1 } };
   const reviews = { per_e: { path: '/p/src/a.ts', patch: editPatch, created: false } };
   const api: ConversationApi = {
-    list: async () => [{ id: 'ses_a', title: 'A', edit: null }, { id: 'ses_b', title: 'B', edit: null }], create: async () => ({ id: 'ses_new', title: 'N', edit: null }), setEditRule: async (id, rule) => ({ id, title: 'A', edit: rule }),
+    list: async () => [{ id: 'ses_a', title: 'A', edit: null }, { id: 'ses_b', title: 'B', edit: null }], create: async () => ({ id: 'ses_new', title: 'N', edit: null }), setEditRule: async (id, rule) => ({ id, title: 'A', edit: rule }), rename: async (id, title) => ({ id, title, edit: null }),
     snapshot: async id => id === 'ses_a' ? { messages: projectMessages([{ id: 'msg_a', type: 'assistant', time: { created: 1, completed: 2 }, content: [edit] }], '/p'), permissions: [{ id: 'per_e', permission: 'edit', patterns: [], always: [], change: { label: 'src/a.ts', additions: 1, deletions: 1, diff: true } }], busy: true, waiting: true, hasMore: false, reviews }
       : { messages: [], permissions: [], busy: false, waiting: false, hasMore: false },
     options: async () => ({ agents: [], models: [], editPolicy: null }), compact: async () => {}, send: async () => {}, stop: async () => {}, reply: async () => {}, shellOutput: async (_id, cursor) => ({ text: '', cursor }),
