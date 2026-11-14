@@ -88,6 +88,7 @@ body:not(.vscode-high-contrast):not(.vscode-high-contrast-light) .message.user {
 .code-block { display: grid; min-width: 0; border-radius: var(--radius-small); overflow: hidden; border: 1px solid var(--line); }
 .code-block > button { justify-self: end; margin: 4px 4px 0; padding: 1px 8px; font-size: .85em; }
 .message-note { color: var(--muted); font-size: .9em; }
+.message-time { justify-self: end; margin-bottom: -6px; color: var(--muted); font-size: .85em; font-variant-numeric: tabular-nums; }
 .message-note.error { color: var(--bad); }
 .caret::after { content: "▍"; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .caret::after { animation: blink 1s steps(2) infinite; } }

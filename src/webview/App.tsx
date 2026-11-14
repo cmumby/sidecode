@@ -3,7 +3,7 @@ import { contextSources, isHostMessage, type ConnectionAction, type WebviewMessa
 import { disconnected, errorMessages, type ConnectionState } from '../shared/connection';
 import { chatErrors, emptyChat, limits, sessionTitle, type ChatState, type ModelOption, type Selection } from '../shared/chat';
 import { Markdown } from './Markdown';
-import { AttachmentList, fileTools, FileChanges, formatElapsed, Mark, PendingContext, PermissionCard, RetryNotice, StepGroup, Thinking } from './Activity';
+import { AttachmentList, fileTools, FileChanges, formatClock, formatElapsed, Mark, PendingContext, PermissionCard, RetryNotice, StepGroup, Thinking } from './Activity';
 
 const contextLabels: Record<typeof contextSources[number], string> = { activeFile: 'Current file', selection: 'Selection', workspace: 'Workspace…' };
 
@@ -167,6 +167,8 @@ export function App({ bridge }: { bridge: HostBridge }) {
     index = end;
   }
   // Reply stats: at the end of each finished exchange, total time and generated tokens.
+  /** Messages that show their time: yours, and replies with written text (not steps or thinking alone). */
+  const stamped = (m: ChatState['messages'][number]) => m.time.created > 0 && (m.role === 'user' || !!m.text.trim());
   const stats = new Map<string, string>();
   for (let index = 0, question: ChatState['messages'][number] | undefined, output = 0; index < chat.messages.length; index++) {
     const message = chat.messages[index]!;
@@ -259,8 +261,11 @@ export function App({ bridge }: { bridge: HostBridge }) {
         ? <li key={row.message.id} className="message assistant summary" data-status={row.message.status} data-id={row.message.id}>
           <details><summary>{row.message.status === 'streaming' ? 'Summarizing earlier conversation…' : 'Summary of earlier conversation'}</summary><Markdown text={row.message.text} /></details>
         </li>
-        : (message => <li key={message.id} className={`message ${message.role}`} data-status={message.status} data-id={message.id}>
-        <span className="visually-hidden">{message.role === 'user' ? 'You' : 'OpenCode'}{message.status === 'complete' || message.status === 'sent' ? '' : `, ${message.status}`}</span>
+        : (message => { const clock = stamped(message) ? formatClock(message.time.created) : ''; return [
+        // Like Claude Code: your messages and written replies get their time at the side; steps and thinking do not.
+        clock && <li key={`${message.id}-time`} className={`message-time ${message.role}`} aria-hidden="true"><time dateTime={new Date(message.time.created).toISOString()}>{clock}</time></li>,
+        <li key={message.id} className={`message ${message.role}`} data-status={message.status} data-id={message.id}>
+        <span className="visually-hidden">{message.role === 'user' ? 'You' : 'OpenCode'}{clock ? `, ${clock}` : ''}{message.status === 'complete' || message.status === 'sent' ? '' : `, ${message.status}`}</span>
         {message.role === 'assistant' && <Thinking text={message.reasoning} streaming={message.status === 'streaming'} answered={!!message.text} />}
         <Markdown text={message.text} />
         <AttachmentList attachments={message.attachments} />
@@ -271,7 +276,7 @@ export function App({ bridge }: { bridge: HostBridge }) {
         {message.status === 'failed' && <p className="message-note error">OpenCode could not complete this response. Check the server and provider, then send a follow-up.</p>}
         {message.otherParts && <p className="message-note">This message includes other activity that is not shown here yet.</p>}
         {stats.has(message.id) && <p className="reply-stats">{stats.get(message.id)}</p>}
-      </li>)(row.message))}</ol>
+      </li>]; })(row.message))}</ol>
       {contextShare !== null && contextShare >= 80 && !chat.busy && chat.operation === 'none' && <div className="banner banner-warning context-warning" role="status">
         <p><strong>This conversation is using {contextShare}% of the model's context</strong> ({compact(contextUsed)} of {compact(contextLimit!)} tokens). Near the limit, local models often fail, loop or forget earlier messages.</p>
         <p><button type="button" className="primary small" disabled={!online} onClick={() => chat.selectedId && bridge.postMessage({ version: 1, type: 'compact', sessionId: chat.selectedId })}>Compact conversation</button> <span className="hint">or start a new session with +.</span></p>

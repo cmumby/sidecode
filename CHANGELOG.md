@@ -15,6 +15,9 @@
   conversation** (OpenCode's own summarize); compaction shows as a divider with the
   summary folded; Stop works while compacting.
 - Each finished exchange shows its duration and generated tokens.
+- **Message times**, like Claude Code: your messages and OpenCode's written replies show
+  their time at the side ("6:48 PM", with the date for earlier days); steps and thinking
+  do not. Screen readers hear the time with the sender.
 - **Rename a session** from the top bar: the pencil button or F2 on the session picker
   turns the name into a field (Enter or clicking away saves, Escape cancels). OpenCode
   keeps the name; its automatic title never replaces it.

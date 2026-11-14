@@ -251,6 +251,18 @@ try {
     const usage = { ...chatState(false), hasMore: false, context: [], messages: [message('msg_u1', 'user'), message('msg_a1', 'assistant', { tokens: { context: 29200, output: 450 } })] };
     await page.evaluate((state) => window.postMessage({ version: 1, type: 'chat', state }, '*'), usage);
     await page.locator('.reply-stats').filter({ hasText: /^1m 00s · 450 tokens$/ }).waitFor({ timeout: 2000 });
+    // Timestamps like Claude Code: your message and the written reply, not tool-only steps.
+    const clock = (ms: number) => new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const stamps = await page.locator('.message-time').evaluateAll(els => els.map(el => ({ role: el.classList.contains('user') ? 'user' : 'assistant', text: (el as HTMLElement).innerText, hidden: el.getAttribute('aria-hidden') })));
+    assert.equal(stamps.length, 2, 'one time per message here');
+    assert.equal(stamps.every(s => s.hidden === 'true'), true, 'visible time is not read twice');
+    assert.match(stamps[0]!.text, /^(\w{3} \d{1,2}(, \d{4})?, )?\d{1,2}:\d{2}\s?[AP]M$/, 'clock format');
+    assert.match(await page.locator('.message.user .visually-hidden').first().innerText(), new RegExp(`^You, .*${clock(1794537780000).replace(/\s/g, '\\s')}$`), 'screen readers hear the time with the sender');
+    await page.evaluate((state) => window.postMessage({ version: 1, type: 'chat', state }, '*'), { ...usage, messages: [...usage.messages, message('msg_a2', 'assistant', { text: '', tools: [{ id: 'prt_t', tool: 'read', status: 'completed', title: 'src/a.ts', detail: '', change: null, started: null }] })] });
+    await page.locator('[data-id="msg_a2"]').waitFor({ timeout: 2000 });
+    assert.equal(await page.locator('.message-time').count(), 2, 'tool-only reply has no time');
+    if (width === 320) await page.screenshot({ path: join(output, `${theme.name}-times.png`) });
+    await page.evaluate((state) => window.postMessage({ version: 1, type: 'chat', state }, '*'), usage);
     const meter = page.locator('.context-meter');
     assert.equal(await meter.innerText(), '89%'); assert.match(await meter.getAttribute('class') ?? '', /high/);
     assert.equal(await meter.getAttribute('aria-label'), 'Context 89% full: 29,200 of 32,768 tokens');

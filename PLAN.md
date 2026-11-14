@@ -726,3 +726,13 @@ branch (pushed, commit 4bb4a0c).
 - Tests: unit (validation, unchanged/empty/too long/unknown, failure), webview (pencil,
   F2, Enter, Escape, blur, focus, 16 theme/width cases with no overflow), native chat
   suite in VSCodium unchanged and passing.
+
+## Message times (user request, like Claude Code, 2026-11-13)
+
+- A right-aligned time above each of your messages and each reply with written text
+  (server `time.created`); tool-only steps, thinking and compaction rows have none.
+  Today: "6:48 PM"; other days add the date, other years the year. The visible time is
+  `aria-hidden`; the message's hidden sender label carries it ("You, 6:48 PM").
+- The rule was inferred from Claude Code's VS Code extension (its source is not public).
+- Tests: webview (which messages are stamped, format, screen-reader label, 16
+  theme/width cases with no overflow).

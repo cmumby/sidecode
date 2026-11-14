@@ -132,6 +132,14 @@ export function PendingContext({ items, disabled, remove }: { items: ContextItem
   </li>)}</ul>;
 }
 
+/** Clock time of a message, like Claude Code: "6:48 PM" today, "Nov 12, 6:48 PM" on another day, with the year when it differs. */
+export function formatClock(ms: number, today = Date.now()): string {
+  const date = new Date(ms); const now = new Date(today);
+  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (date.toDateString() === now.toDateString()) return time;
+  return `${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}) })}, ${time}`;
+}
+
 export function formatElapsed(ms: number): string {
   const seconds = Math.max(0, Math.floor(ms / 1000));
   return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`;
